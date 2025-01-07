@@ -37,13 +37,30 @@ def Sum_genWeight_calculator(sample_JSON):
     total_sample_genWeight = ak.sum(ak.Array(samples_sum_genWeight), axis = 0)
     print(f"{process_name}_postEE's total sum of genWeight is {total_sample_genWeight}")
 
-    return total_sample_genWeight
+    return key, total_sample_genWeight
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description = "Please provide the path to the sample JSON file.")
     parser.add_argument("sample_JSON", type = str, help = "Path to the sample JSON file.")
+    parser.add_argument("output_JSON", type = str, help = "Path to the JSON file that saves the total sum of genWeight of the sample JSON file.")
 
     args = parser.parse_args()
 
-    Sum_genWeight_calculator(args.sample_JSON)
+    # To append results from multiple runs to the same JSON file, you'll need to read the existing content of the file first, 
+    # update it with the new result, and then write it back.
+
+    # Load existing data from the output JSON file if it exists.
+    if os.path.exists(args.output_JSON):
+        with open(args.output_JSON, "r") as output_file:
+            total_sum_genWeight = json.load(output_file)
+    else:
+        total_sum_genWeight = {}
+
+    # Calculate the sum of genWeight for the current sample JSON.
+    name, result = Sum_genWeight_calculator(args.sample_JSON)
+    total_sum_genWeight[name] = result
+
+    # Write the updated data back to the JSON file.
+    with open(args.output_JSON, "w") as output_file:
+        json.dump(total_sum_genWeight, output_file, indent = 4)
