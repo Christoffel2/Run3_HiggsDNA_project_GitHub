@@ -100,7 +100,21 @@ class VHtoLeptonicGGProcessorV1(HggBaseProcessor):
         chosen_lepton_variables = ak.pad_none(chosen_lepton_variables, 1)
         chosen_lepton_variables = ak.flatten(ak.fill_none(chosen_lepton_variables, fill_value))
 
-        return chosen_lepton_variables    
+        return chosen_lepton_variables
+
+    def GetCategory(self, ievt):
+        evt_nElectrons = self.nElectrons[ievt]
+        evt_nMuons = self.nMuons[ievt]
+        evt_nLeptons = evt_nElectrons + evt_nMuons
+
+        if evt_nElectrons == 2 or evt_nMuons == 2:  # ZH-leptonic (same-flavor charged lepton pair)
+            cat = 2
+        elif evt_nLeptons == 1:  # WH-leptonic (single charged lepton)
+            cat = 1
+        else:  # VH-MET
+            cat = 0
+
+        return cat
               
     def process(self, events):
         # For details about where do "events" and "metadata" come from,
@@ -349,10 +363,10 @@ class VHtoLeptonicGGProcessorV1(HggBaseProcessor):
                     # leading photons' pt > 35. (below) and subleading photons' pt > 25. (Contained in "photon_preselection()").
                     diphotons = diphotons[diphotons["pho_lead"].pt > self.min_pt_lead_photon]
 
-                    # Adding the leading- and subleading- photons' pt in each event, sort these value from big to small.
-                    # This will be used the moment we want to pick out the diphoton pair having the largest scalar pt sum in each event.
-                    lead_and_sublead_pt_sum = diphotons.pho_lead.pt + diphotons.pho_sublead.pt
-                    diphotons = diphotons[ak.argsort(lead_and_sublead_pt_sum, axis = 1, ascending = False)]
+                    # # Adding the leading- and subleading- photons' pt in each event, sort these value from big to small.
+                    # # This will be used the moment we want to pick out the diphoton pair having the largest scalar pt sum in each event.
+                    # lead_and_sublead_pt_sum = diphotons.pho_lead.pt + diphotons.pho_sublead.pt
+                    # diphotons = diphotons[ak.argsort(lead_and_sublead_pt_sum, axis = 1, ascending = False)]
                     
                     diphoton_4momentum = diphotons["pho_lead"] + diphotons["pho_sublead"]
                     diphotons["pt"] = diphoton_4momentum.pt
@@ -385,6 +399,9 @@ class VHtoLeptonicGGProcessorV1(HggBaseProcessor):
                     print(f"The number of diphoton events: {ak.num(diphotons, axis = 0)}")
                     print("=====================================================================")
 
+                    # Sort diphotons by pt
+                    diphotons = diphotons[ak.argsort(diphotons.pt, axis = 1, ascending = False)]
+                    
                     # Determine if event passes fiducial Hgg cuts at detector-level
                     diphotons = apply_fiducial_cut_det_level(self, diphotons)
 
@@ -449,6 +466,23 @@ class VHtoLeptonicGGProcessorV1(HggBaseProcessor):
                     muons = muons[select_muons(self, muons, diphotons)]
                     muons = muons[ak.argsort(muons.pt, axis = 1, ascending = False)]
 
+                    # Categorize events based on lepton flavor and count, and save this information in the diphotons' fields.
+                    nElectrons = ak.num(electrons, axis = 1)
+                    nMuons = ak.num(muons, axis = 1)
+                    nLeptons = np.add(nElectrons, nMuons)
+                    nDiphotons = ak.num(diphotons.pt, axis = 1)
+
+                    self.nElectrons = nElectrons
+                    self.nMuons = nMuons
+                    self.nLeptons = nLeptons
+
+                    ievt_by_diphotons = ak.flatten(
+                        ak.Array([nDipho * [evt_i] for evt_i, nDipho in enumerate(nDiphotons)])
+                    )
+                    cat_vals = ak.Array(map(self.GetCategory, ievt_by_diphotons))
+                    cat_vals = ak.unflatten(cat_vals, nDiphotons)
+                    diphotons["event_category"] = cat_vals
+
                     # MET (Missing Transverse Energy) variables (For neutrinos)
                     met = ak.zip(
                         {
@@ -465,8 +499,8 @@ class VHtoLeptonicGGProcessorV1(HggBaseProcessor):
 
                     # Add lepton variables to diphotons. (This part is originally written by Tom Runting in stxs.py of HiggsDNA.)
                     lepton_indices = [0,1]
-                    diphotons["n_electrons"] = ak.num(electrons, axis = 1)
-                    diphotons["n_muons"] = ak.num(muons, axis = 1)
+                    diphotons["n_electrons"] = nElectrons
+                    diphotons["n_muons"] = nMuons
 
                     for i in lepton_indices:
                         # electrons' kinematic variables.
@@ -539,6 +573,7 @@ class VHtoLeptonicGGProcessorV1(HggBaseProcessor):
                     diphotons["n_jets"] = n_jets
                     print(f"diphotons' fields after adding jets' variables: {diphotons.fields}")
                     print("\n")
+                    # exit()
                     """
                     ========== Run taggers on the events list with added diphotons. The Shape here is ensured to be broadcastable. ==========
                     """
