@@ -356,8 +356,8 @@ class VHtoLeptonicGGProcessorV1(HggBaseProcessor):
                     """========== Photon preselection and turn the diphotons into candidates with four momenta and such =========="""
                     photons = photon_preselection(self, photons, events, year = self.year[dataset_name][0])
                     photons["charge"] = ak.zeros_like(photons.pt)
-                    photons["mvaID_score"] = photons.mvaID
-                    print(f"MVAid score of photons: {photons.mvaID_score}")
+                    # photons["mvaID_score"] = photons.mvaID
+                    # print(f"MVAid score of photons: {photons.mvaID_score}") # I commented out these two lines since they are automatically included in the Ntuples.
 
                     diphotons = ak.combinations(photons, 2, fields = ["pho_lead", "pho_sublead"])
                     # leading photons' pt > 35. (below) and subleading photons' pt > 25. (Contained in "photon_preselection()").
@@ -386,8 +386,10 @@ class VHtoLeptonicGGProcessorV1(HggBaseProcessor):
                         print("=====================================================================")
                         # print(f"diphoton raw genweights is: {diphotons.raw_genWeight}")
                         print(f"diphoton sum of raw genweights is: {diphotons.sum_of_raw_genWeights}")
+                        print("\n")
                         print(f"diphoton number of pileup field is: {diphotons.number_of_pileup}")
                         print("=====================================================================")
+                        print("\n")
 
                     print("=====================================================================")
                     print(f"diphoton pt is: {diphotons.pt}")
@@ -395,9 +397,9 @@ class VHtoLeptonicGGProcessorV1(HggBaseProcessor):
                     print(f"diphoton phi is: {diphotons.phi}")
                     print(f"diphoton mass is: {diphotons.mass}")
                     print(f"diphoton charge is: {diphotons.charge}")
-                    # print(f"diphoton mvaID_score field is: {diphotons.mvaID_score}")
                     print(f"The number of diphoton events: {ak.num(diphotons, axis = 0)}")
                     print("=====================================================================")
+                    print("\n")
 
                     # Sort diphotons by pt
                     diphotons = diphotons[ak.argsort(diphotons.pt, axis = 1, ascending = False)]
@@ -413,7 +415,7 @@ class VHtoLeptonicGGProcessorV1(HggBaseProcessor):
                     events, process_extra = self.process_extra(events)
                     histos_etc.update(process_extra)
 
-                    # Jet variables (Only pt, eta, phi, mass, charge and Id are added for now.)
+                    # Jet variables
                     jets = ak.zip(
                         {
                             "pt" : Jets.pt,
@@ -423,6 +425,9 @@ class VHtoLeptonicGGProcessorV1(HggBaseProcessor):
                             "charge" : ak.zeros_like(Jets.pt),
                             "jetId" : Jets.jetId,
                             "hadronFlavor" : Jets.hadronFlavour if self.data_kind == "mc" else ak.zeros_like(Jets.pt),
+                            "btagPNetB" : Jets.btagPNetB,
+                            "btagDeepFlavB" : Jets.btagDeepFlavB,
+                            "btagRobustParTAK4B" : Jets.btagRobustParTAK4B,
                         }, with_name = "PtEtaPhiMCandidate"
                     )
 
@@ -525,6 +530,7 @@ class VHtoLeptonicGGProcessorV1(HggBaseProcessor):
                     print("\n")
                     print(f"The number of electron events: {ak.num(diphotons.electron0_pt, axis = 0)}")
                     print("=====================================================================")
+                    print("\n")
 
                     diphotons["MET_pt"] = met.pt
                     diphotons["MET_phi"] = met.phi
@@ -535,6 +541,7 @@ class VHtoLeptonicGGProcessorV1(HggBaseProcessor):
                     print("\n")
                     print(f"The number of MET events: {ak.num(diphotons.MET_pt, axis = 0)}")
                     print("=====================================================================")
+                    print("\n")
 
                     # # PUPPI MET objects (Not sure about its role for now (8/27))
                     # puppiMET = events.PuppiMET
@@ -556,24 +563,94 @@ class VHtoLeptonicGGProcessorV1(HggBaseProcessor):
                         jet_collection[f"Jet{i}_phi"] = choose_jet(jets.phi, i, -999.0)
                         jet_collection[f"Jet{i}_mass"] = choose_jet(jets.mass, i, -999.0)
                         jet_collection[f"Jet{i}_charge"] = choose_jet(jets.charge, i, -999.0)
+                        jet_collection[f"Jet{i}_btagPNetB"] = choose_jet(jets.btagPNetB, i, -999.0)
+                        jet_collection[f"Jet{i}_btagDeepFlavB"] = choose_jet(jets.btagDeepFlavB, i, -999.0)
+                        jet_collection[f"Jet{i}_btagRobustParTAK4B"] = choose_jet(jets.btagRobustParTAK4B, i, -999.0)
 
                     # Add Ht (scalar sum of jet Et). (This part is originally written by Tom Runting in stxs.py of HiggsDNA.)
-                    # Do I need this variable in my analysis?
+                    # Do I need this variable in my analysis? --> Only need jets_Et.
                     jets_Et = np.sqrt(jets.pt**2 + jets.mass**2)
                     jets_Ht = ak.sum(jets_Et, axis = 1)
                     jets_Ht = ak.fill_none(jets_Ht, -999.0)
 
-                    # Add leading-jets variables to diphotons' fields. Leading-jet variables are used in my analysis as a discriminator since,
-                    # we don't consider jets, ttH-leptonic and VH-leptonic are nearly the same.
-                    diphotons["Jet0_pt"] = jet_collection["Jet0_pt"]
-                    diphotons["Jet0_eta"] = jet_collection["Jet0_eta"]
-                    diphotons["Jet0_phi"] = jet_collection["Jet0_phi"]
-                    diphotons["Jet0_mass"] = jet_collection["Jet0_mass"]
-                    diphotons["Jet0_charge"] = jet_collection["Jet0_charge"]
+                    # Originally I only added leading-jets variables to diphotons' fields since leading-jet variables are used in my analysis as a discriminator,
+                    # however, to avoid missing something about jets in future, I decide to add all jets' variables to diphotons' fields.
+                    # (If we don't consider jets, ttH-leptonic and VH-leptonic are nearly the same.)
+                    for i in jet_indices:
+                        diphotons[f"Jet{i}_pt"] = jet_collection[f"Jet{i}_pt"]
+                        diphotons[f"Jet{i}_eta"] = jet_collection[f"Jet{i}_eta"]
+                        diphotons[f"Jet{i}_phi"] = jet_collection[f"Jet{i}_phi"]
+                        diphotons[f"Jet{i}_mass"] = jet_collection[f"Jet{i}_mass"]
+                        diphotons[f"Jet{i}_charge"] = jet_collection[f"Jet{i}_charge"]
+                        diphotons[f"Jet{i}_btagPNetB"] = jet_collection[f"Jet{i}_btagPNetB"]
+                        diphotons[f"Jet{i}_btagDeepFlavB"] = jet_collection[f"Jet{i}_btagDeepFlavB"]
+                        diphotons[f"Jet{i}_btagRobustParTAK4B"] = jet_collection[f"Jet{i}_btagRobustParTAK4B"]
                     diphotons["n_jets"] = n_jets
-                    print(f"diphotons' fields after adding jets' variables: {diphotons.fields}")
+                    print("=====================================================================")
+                    print(f"diphotons' fields after adding ''jets' variables'': {diphotons.fields}")
+                    print("=====================================================================")
                     print("\n")
-                    # exit()
+
+                    # Calculate the minimum of the azimuthal angle between the transverse momentum of MET and the transverse momentum of one of the jet.
+                    ## Broadcast the phi array of MET to the same shape as that of jets.
+                    MET_phi_broadcasted = ak.broadcast_arrays(met.phi, jets.phi)[0]
+                    DPhi_MET_Jets = np.abs(MET_phi_broadcasted - jets.phi)
+                    DPhi_MET_Jets = ak.where(DPhi_MET_Jets > np.pi, 2 * np.pi - DPhi_MET_Jets, DPhi_MET_Jets)
+                    Min_DPhi_MET_Jets = ak.min(DPhi_MET_Jets, axis = 1)
+                    Min_DPhi_MET_Jets = ak.fill_none(Min_DPhi_MET_Jets, -999.0, axis = 0)
+                    diphotons["Min_DPhi_MET_Jets"] = Min_DPhi_MET_Jets
+                    print(f"Min_DPhi_MET_Jets is: {diphotons.Min_DPhi_MET_Jets}")
+                    print("\n")
+
+                    # Calculate the minimum of the azimuthal angle between the transverse momentum of W boson and the transverse momentum of each jet,
+                    # where W boson decays to a lepton and a neutrino.
+                    leptons = ak.concatenate([electrons, muons], axis = 1)
+                    leptons = ak.mask(leptons, ak.num(leptons, axis = 1) == 1)
+                    met = ak.mask(met, ak.num(leptons, axis = 1) == 1)
+                    jets = ak.mask(jets, ak.num(leptons, axis = 1) == 1)
+                    leading_lepton = ak.firsts(leptons)  # Now we are sure there's exactly one lepton per event
+                    # Construct the W boson transverse momentum as the sum of lepton and MET
+                    W_px = leading_lepton.pt * np.cos(leading_lepton.phi) + met.pt * np.cos(met.phi)
+                    W_py = leading_lepton.pt * np.sin(leading_lepton.phi) + met.pt * np.sin(met.phi)
+                    W_phi = np.arctan2(W_py, W_px)  # Azimuthal angle of the W boson
+                    W_phi = ak.fill_none(W_phi, -999.0)
+                    print(f"W_phi is {W_phi}")
+                    print("W_phi:", ak.type(W_phi))
+                    print("\n")
+
+                    jets_phi = jets.phi
+                    print(f"jets_phi is {jets_phi}")
+                    print("jets_phi:", ak.type(jets_phi))
+                    print("\n")
+                    W_phi_jagged, jets_phi = ak.broadcast_arrays(W_phi, jets_phi) # Broadcast w_phi to match jets_phi's jagged structure
+                    print("W_phi_jagged:", ak.type(W_phi_jagged))
+                    print("\n")
+                    print("jets_phi:", ak.type(jets_phi))
+                    print("\n")
+                    DPhi_W_Jets = np.abs(W_phi_jagged - jets_phi)
+                    print(f"DPhi_W_Jets array before ak.where() is: {DPhi_W_Jets}")
+                    print("\n")
+                    print(f"The number of DPhi_W_Jets array in axis = 0 before ak.where() is: {ak.num(DPhi_W_Jets, axis = 0)}")
+                    print("\n")
+                    print(f"The number of DPhi_W_Jets array in axis = 1 before ak.where() is: {ak.num(DPhi_W_Jets, axis = 1)}")
+                    print("\n")
+                    DPhi_W_Jets = np.where(DPhi_W_Jets > np.pi, 2 * np.pi - DPhi_W_Jets, DPhi_W_Jets)
+                    print(f"DPhi_W_Jets array after ak.where() is: {DPhi_W_Jets}")
+                    print("\n")
+                    print(f"The number of DPhi_W_Jets array in axis = 0 after ak.where() is: {ak.num(DPhi_W_Jets, axis = 0)}")
+                    print("\n")
+                    print(f"The number of DPhi_W_Jets array in axis = 1 after ak.where() is: {ak.num(DPhi_W_Jets, axis = 1)}")
+                    print("\n")
+                    Min_DPhi_W_Jets = ak.min(DPhi_W_Jets, axis = 1)
+                    print(f"Min_DPhi_W_Jets is: {Min_DPhi_W_Jets}")
+                    print("\n")
+                    print(f"The number of Min_DPhi_W_Jets in axis = 0 is: {ak.num(Min_DPhi_W_Jets, axis = 0)}")
+                    print("\n")
+                    diphotons["Min_DPhi_W_Jets"] = Min_DPhi_W_Jets
+                    print("=====================================================================")
+                    print(f"diphotons' fields after adding ''Min_DPhi_MET_Jets'' and ''Min_DPhi_W_Jets'' are: {diphotons.fields}")
+                    print("=====================================================================")
+
                     """
                     ========== Run taggers on the events list with added diphotons. The Shape here is ensured to be broadcastable. ==========
                     """
@@ -608,7 +685,6 @@ class VHtoLeptonicGGProcessorV1(HggBaseProcessor):
                     diphotons["run"] = events.run
                     diphotons["nPV"] = events.PV.npvs # nPV for validation of pileup reweighting.
                     diphotons["fixedGridRhoAll"] = events.Rho.fixedGridRhoAll
-                    print(f"diphoton fields are: {diphotons.fields}")
 
                     if self.data_kind == "mc":
                         diphotons["genWeight"] = events.genWeight
