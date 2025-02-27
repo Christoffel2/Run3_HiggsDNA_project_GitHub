@@ -356,8 +356,7 @@ class VHtoLeptonicGGProcessorV1(HggBaseProcessor):
                     """========== Photon preselection and turn the diphotons into candidates with four momenta and such =========="""
                     photons = photon_preselection(self, photons, events, year = self.year[dataset_name][0])
                     photons["charge"] = ak.zeros_like(photons.pt)
-                    # photons["mvaID_score"] = photons.mvaID
-                    # print(f"MVAid score of photons: {photons.mvaID_score}") # I commented out these two lines since they are automatically included in the Ntuples.
+                    # Note that the mvaID score of photons will be automatically saved in the Ntuples (field: photons.mvaID).
 
                     diphotons = ak.combinations(photons, 2, fields = ["pho_lead", "pho_sublead"])
                     # leading photons' pt > 35. (below) and subleading photons' pt > 25. (Contained in "photon_preselection()").
@@ -543,7 +542,7 @@ class VHtoLeptonicGGProcessorV1(HggBaseProcessor):
                     print("=====================================================================")
                     print("\n")
 
-                    # # PUPPI MET objects (Not sure about its role for now (8/27))
+                    # # PUPPI MET objects
                     # puppiMET = events.PuppiMET
                     # puppiMET = ak.with_name(puppiMET, "PtEtaPhiMCandidate")
 
@@ -609,43 +608,18 @@ class VHtoLeptonicGGProcessorV1(HggBaseProcessor):
                     met = ak.mask(met, ak.num(leptons, axis = 1) == 1)
                     jets = ak.mask(jets, ak.num(leptons, axis = 1) == 1)
                     leading_lepton = ak.firsts(leptons)  # Now we are sure there's exactly one lepton per event
+                    
                     # Construct the W boson transverse momentum as the sum of lepton and MET
                     W_px = leading_lepton.pt * np.cos(leading_lepton.phi) + met.pt * np.cos(met.phi)
                     W_py = leading_lepton.pt * np.sin(leading_lepton.phi) + met.pt * np.sin(met.phi)
                     W_phi = np.arctan2(W_py, W_px)  # Azimuthal angle of the W boson
                     W_phi = ak.fill_none(W_phi, -999.0)
-                    print(f"W_phi is {W_phi}")
-                    print("W_phi:", ak.type(W_phi))
-                    print("\n")
 
                     jets_phi = jets.phi
-                    print(f"jets_phi is {jets_phi}")
-                    print("jets_phi:", ak.type(jets_phi))
-                    print("\n")
                     W_phi_jagged, jets_phi = ak.broadcast_arrays(W_phi, jets_phi) # Broadcast w_phi to match jets_phi's jagged structure
-                    print("W_phi_jagged:", ak.type(W_phi_jagged))
-                    print("\n")
-                    print("jets_phi:", ak.type(jets_phi))
-                    print("\n")
                     DPhi_W_Jets = np.abs(W_phi_jagged - jets_phi)
-                    print(f"DPhi_W_Jets array before ak.where() is: {DPhi_W_Jets}")
-                    print("\n")
-                    print(f"The number of DPhi_W_Jets array in axis = 0 before ak.where() is: {ak.num(DPhi_W_Jets, axis = 0)}")
-                    print("\n")
-                    print(f"The number of DPhi_W_Jets array in axis = 1 before ak.where() is: {ak.num(DPhi_W_Jets, axis = 1)}")
-                    print("\n")
                     DPhi_W_Jets = np.where(DPhi_W_Jets > np.pi, 2 * np.pi - DPhi_W_Jets, DPhi_W_Jets)
-                    print(f"DPhi_W_Jets array after ak.where() is: {DPhi_W_Jets}")
-                    print("\n")
-                    print(f"The number of DPhi_W_Jets array in axis = 0 after ak.where() is: {ak.num(DPhi_W_Jets, axis = 0)}")
-                    print("\n")
-                    print(f"The number of DPhi_W_Jets array in axis = 1 after ak.where() is: {ak.num(DPhi_W_Jets, axis = 1)}")
-                    print("\n")
                     Min_DPhi_W_Jets = ak.min(DPhi_W_Jets, axis = 1)
-                    print(f"Min_DPhi_W_Jets is: {Min_DPhi_W_Jets}")
-                    print("\n")
-                    print(f"The number of Min_DPhi_W_Jets in axis = 0 is: {ak.num(Min_DPhi_W_Jets, axis = 0)}")
-                    print("\n")
                     diphotons["Min_DPhi_W_Jets"] = Min_DPhi_W_Jets
                     print("=====================================================================")
                     print(f"diphotons' fields after adding ''Min_DPhi_MET_Jets'' and ''Min_DPhi_W_Jets'' are: {diphotons.fields}")
