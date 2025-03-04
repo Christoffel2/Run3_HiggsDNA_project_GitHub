@@ -15,7 +15,7 @@ GJet_PT-40_DoubleEMEnriched_MGG-80_preEE /GJet_PT-40_DoubleEMEnriched_MGG-80_Tun
 ## Diphoton nonresonance
 GG-Box-3Jets_MGG-80_preEE /GG-Box-3Jets_MGG-80_13p6TeV_sherpa/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1-v2/NANOAODSIM
 
-## Drell-Yen
+## Drell-Yan
 DYto2L-2Jets_MLL-50_preEE /DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv13-133X_mcRun3_2022_realistic_ForNanov13_v1-v1/NANOAODSIM
 
 ### DYGto2LG-1Jets process is used to supplement ZGto2LG process below.
