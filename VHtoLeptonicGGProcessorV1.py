@@ -41,6 +41,7 @@ import sys
 import vector
 from typing import Any, Dict, List, Optional
 from coffea.nanoevents.methods import candidate
+
 from coffea.analysis_tools import Weights
 from copy import deepcopy
 
@@ -258,8 +259,7 @@ class VHtoLeptonicGGProcessorV1(HggBaseProcessor):
 
         """========== Everything above seems fine for now, focus on editing the codes below (8/27) =========="""
         original_photons = events.Photon
-        # Since jets object seems to be important in the reconstruction and categorisation of VH MET category (missing transverse energy), I add them back (8/27).
-        original_jets = events.Jet
+        original_jets = events.Jet # Jet objects are important in the reconstruction and categorization of VH MET category (missing transverse energy).
 
         """========== Systematic object variations =========="""
         for systematic_name in systematic_names:
@@ -300,7 +300,7 @@ class VHtoLeptonicGGProcessorV1(HggBaseProcessor):
 
         """========== Computing the normalizing flow correction =========="""
         if ((self.data_kind == "mc") and (self.doFlow_corrections)):
-            # Applying the flow corrections to all photons before preselection. (Why?)
+            # Applying the flow corrections to all photons before preselection.
             counts = ak.num(original_photons)
             correctied_inputs, var_list = calculate_flow_corrections(original_photons, events, self.meta["flashggPhotons"]["flow_inputs"], self.meta["flashggPhotons"]["Isolation_transform_order"], year = self.year[dataset_name][0])
 
@@ -313,7 +313,7 @@ class VHtoLeptonicGGProcessorV1(HggBaseProcessor):
                 original_photons["raw_" + str(var_list[i])] = original_photons[str(var_list[i])]
                 original_photons[str(var_list[i])] = ak.unflatten(correctied_inputs[:,i], counts)
 
-            original_photons["mvaID"] = ak.unflatten(self.add_photonid_mva_run3(original_photons, events), counts) # This line seems weird, maybe it is not needed.
+            original_photons["mvaID"] = ak.unflatten(self.add_photonid_mva_run3(original_photons, events), counts)
         
         """========== Applying systematic variations =========="""
         photons_dct = {}
@@ -349,7 +349,7 @@ class VHtoLeptonicGGProcessorV1(HggBaseProcessor):
                     
                     if self.chained_quantile is not None:
                         photons = self.chained_quantile.apply(photons, events)
-                    # recompute photonid_mva on the fly. (Why?)
+                    # recompute photonid_mva on the fly.
                     if self.photonid_mva_EB and self.photonid_mva_EE:
                         photons = self.add_photonid_mva(photons, events)
 
@@ -385,7 +385,6 @@ class VHtoLeptonicGGProcessorV1(HggBaseProcessor):
                         print("=====================================================================")
                         # print(f"diphoton raw genweights is: {diphotons.raw_genWeight}")
                         print(f"diphoton sum of raw genweights is: {diphotons.sum_of_raw_genWeights}")
-                        print("\n")
                         print(f"diphoton number of pileup field is: {diphotons.number_of_pileup}")
                         print("=====================================================================")
                         print("\n")
@@ -396,7 +395,8 @@ class VHtoLeptonicGGProcessorV1(HggBaseProcessor):
                     print(f"diphoton phi is: {diphotons.phi}")
                     print(f"diphoton mass is: {diphotons.mass}")
                     print(f"diphoton charge is: {diphotons.charge}")
-                    print(f"The number of diphoton events: {ak.num(diphotons, axis = 0)}")
+                    print(f"The number of zero-diphoton events: {ak.num(diphotons.pt[ak.num(diphotons.pt, axis = 1) == 0], axis = 0)}")
+                    print(f"The number of nonzero-diphoton events: {ak.num(diphotons.pt[ak.num(diphotons.pt, axis = 1) != 0], axis = 0)}")
                     print("=====================================================================")
                     print("\n")
 
@@ -470,6 +470,14 @@ class VHtoLeptonicGGProcessorV1(HggBaseProcessor):
                     muons = muons[select_muons(self, muons, diphotons)]
                     muons = muons[ak.argsort(muons.pt, axis = 1, ascending = False)]
 
+                    print("=====================================================================")
+                    print(f"The number of zero-electron events after preselections: {ak.num(electrons.pt[ak.num(electrons.pt, axis = 1) == 0], axis = 0)}")
+                    print(f"The number of nonzero-electron events after preselections: {ak.num(electrons.pt[ak.num(electrons.pt, axis = 1) != 0], axis = 0)}")
+                    print(f"The number of zero-muon events after preselections: {ak.num(muons.pt[ak.num(muons.pt, axis = 1) == 0], axis = 0)}")
+                    print(f"The number of nonzero-muon events after preselections: {ak.num(muons.pt[ak.num(muons.pt, axis = 1) == 0], axis = 0)}")
+                    print("=====================================================================")
+                    print("\n")
+
                     # Categorize events based on lepton flavor and count, and save this information in the diphotons' fields.
                     nElectrons = ak.num(electrons, axis = 1)
                     nMuons = ak.num(muons, axis = 1)
@@ -496,10 +504,19 @@ class VHtoLeptonicGGProcessorV1(HggBaseProcessor):
                             "sumEt" : events.MET.sumEt,
                         }, with_name = "PtEtaPhiMCandidate"
                     )
+                    print("=====================================================================")
+                    print(f"The number of MET events before masking: {ak.num(met.pt, axis = 0)}")
+                    print("=====================================================================")
+                    print("\n")
 
                     # MET selection
                     met_selection = met.pt > 75.
                     met = ak.mask(met, met_selection)
+                    print("=====================================================================")
+                    print(f"The number of MET events after masking: {ak.num(met.pt, axis = 0)}")
+                    print(f"The number of not-None MET events: {ak.num(met[~ak.is_none(met, axis = 0)].pt, axis = 0)}")
+                    print("=====================================================================")
+                    print("\n")
 
                     # Add lepton variables to diphotons. (This part is originally written by Tom Runting in stxs.py of HiggsDNA.)
                     lepton_indices = [0,1]
@@ -526,8 +543,6 @@ class VHtoLeptonicGGProcessorV1(HggBaseProcessor):
                     
                     print("=====================================================================")
                     print(f"diphotons' fields after adding electrons and muons: {diphotons.fields}")
-                    print("\n")
-                    print(f"The number of electron events: {ak.num(diphotons.electron0_pt, axis = 0)}")
                     print("=====================================================================")
                     print("\n")
 
@@ -537,8 +552,6 @@ class VHtoLeptonicGGProcessorV1(HggBaseProcessor):
                     
                     print("=====================================================================")
                     print(f"diphotons' fields after adding MET's variables: {diphotons.fields}")
-                    print("\n")
-                    print(f"The number of MET events: {ak.num(diphotons.MET_pt, axis = 0)}")
                     print("=====================================================================")
                     print("\n")
 
@@ -590,36 +603,43 @@ class VHtoLeptonicGGProcessorV1(HggBaseProcessor):
                     print("=====================================================================")
                     print("\n")
 
-                    # Calculate the minimum of the azimuthal angle between the transverse momentum of MET and the transverse momentum of one of the jet.
-                    ## Broadcast the phi array of MET to the same shape as that of jets.
-                    MET_phi_broadcasted = ak.broadcast_arrays(met.phi, jets.phi)[0]
-                    DPhi_MET_Jets = np.abs(MET_phi_broadcasted - jets.phi)
+                    # Calculate the minimum of the azimuthal angle between the transverse momentum of MET and the transverse momentum of one of the jet. There are two ways to do this:
+                    ## 1. Use ak.cartesian() to pair the phi array of MET and the phi array of jets, then calculate the azimuthal angle difference between them.
+                    MET_Jets_pair = ak.cartesian([met.phi, jets.phi], axis = 1)
+                    DPhi_MET_Jets = np.abs(MET_Jets_pair["0"] - MET_Jets_pair["1"])
                     DPhi_MET_Jets = ak.where(DPhi_MET_Jets > np.pi, 2 * np.pi - DPhi_MET_Jets, DPhi_MET_Jets)
                     Min_DPhi_MET_Jets = ak.min(DPhi_MET_Jets, axis = 1)
                     Min_DPhi_MET_Jets = ak.fill_none(Min_DPhi_MET_Jets, -999.0, axis = 0)
                     diphotons["Min_DPhi_MET_Jets"] = Min_DPhi_MET_Jets
-                    print(f"Min_DPhi_MET_Jets is: {diphotons.Min_DPhi_MET_Jets}")
-                    print("\n")
+
+                    ## 2. Broadcast the phi array of MET to the same shape as that of jets, then calculate the azimuthal angle difference between them..
+                    # MET_phi_broadcasted = ak.broadcast_arrays(met.phi, jets.phi)[0]
+                    # DPhi_MET_Jets = np.abs(MET_phi_broadcasted - jets.phi)
+                    # DPhi_MET_Jets = ak.where(DPhi_MET_Jets > np.pi, 2 * np.pi - DPhi_MET_Jets, DPhi_MET_Jets)
+                    # Min_DPhi_MET_Jets = ak.min(DPhi_MET_Jets, axis = 1)
+                    # Min_DPhi_MET_Jets = ak.fill_none(Min_DPhi_MET_Jets, -999.0, axis = 0)
+                    # diphotons["Min_DPhi_MET_Jets"] = Min_DPhi_MET_Jets
+                    # print(f"Min_DPhi_MET_Jets is: {diphotons.Min_DPhi_MET_Jets}")
+                    # print("\n")
 
                     # Calculate the minimum of the azimuthal angle between the transverse momentum of W boson and the transverse momentum of each jet,
                     # where W boson decays to a lepton and a neutrino.
                     leptons = ak.concatenate([electrons, muons], axis = 1)
-                    leptons = ak.mask(leptons, ak.num(leptons, axis = 1) == 1)
-                    met = ak.mask(met, ak.num(leptons, axis = 1) == 1)
-                    jets = ak.mask(jets, ak.num(leptons, axis = 1) == 1)
-                    leading_lepton = ak.firsts(leptons)  # Now we are sure there's exactly one lepton per event
-                    
-                    # Construct the W boson transverse momentum as the sum of lepton and MET
-                    W_px = leading_lepton.pt * np.cos(leading_lepton.phi) + met.pt * np.cos(met.phi)
-                    W_py = leading_lepton.pt * np.sin(leading_lepton.phi) + met.pt * np.sin(met.phi)
-                    W_phi = np.arctan2(W_py, W_px)  # Azimuthal angle of the W boson
-                    W_phi = ak.fill_none(W_phi, -999.0)
+                    one_lepton = ak.mask(leptons, ak.num(leptons.pt, axis = 1) == 1)
+                    one_met = ak.mask(met, ak.num(leptons.pt, axis = 1) == 1)
+                    one_jet = ak.mask(jets, ak.num(leptons.pt, axis = 1) == 1)
 
-                    jets_phi = jets.phi
-                    W_phi_jagged, jets_phi = ak.broadcast_arrays(W_phi, jets_phi) # Broadcast w_phi to match jets_phi's jagged structure
-                    DPhi_W_Jets = np.abs(W_phi_jagged - jets_phi)
-                    DPhi_W_Jets = np.where(DPhi_W_Jets > np.pi, 2 * np.pi - DPhi_W_Jets, DPhi_W_Jets)
+                    ## Construct the W boson transverse momentum as the sum of lepton and MET
+                    W_px = one_lepton.pt * np.cos(one_lepton.phi) + one_met.pt * np.cos(one_met.phi)
+                    W_py = one_lepton.pt * np.sin(one_lepton.phi) + one_met.pt * np.sin(one_met.phi)
+                    W_phi = np.arctan2(W_py, W_px)  # Azimuthal angle of the W boson
+
+                    ## Use ak.cartesian() to pair the phi array of W boson and the phi array of jets, then calculate the azimuthal angle difference between them.
+                    W_Jets_Pair = ak.cartesian([W_phi, one_jet.phi], axis = 1)
+                    DPhi_W_Jets = np.abs(W_Jets_Pair["0"] - W_Jets_Pair["1"])
+                    DPhi_W_Jets = ak.where(DPhi_W_Jets > np.pi, 2 * np.pi - DPhi_W_Jets, DPhi_W_Jets)
                     Min_DPhi_W_Jets = ak.min(DPhi_W_Jets, axis = 1)
+                    Min_DPhi_W_Jets = ak.fill_none(Min_DPhi_W_Jets, -999.0, axis = 0)
                     diphotons["Min_DPhi_W_Jets"] = Min_DPhi_W_Jets
                     print("=====================================================================")
                     print(f"diphotons' fields after adding ''Min_DPhi_MET_Jets'' and ''Min_DPhi_W_Jets'' are: {diphotons.fields}")
