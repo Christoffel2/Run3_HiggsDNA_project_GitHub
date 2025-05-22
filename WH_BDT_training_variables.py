@@ -168,7 +168,7 @@ print("\n")
 ########## Input variables for WH BDT ##########
 ################################################################################################################################
 """========== weight =========="""
-weight = np.concatenate([get_weight(name, nt) for name, nt in WH_ntuples_dict.items()], axis = 0)
+weight = np.array(np.concatenate([get_weight(name, nt) for name, nt in WH_ntuples_dict.items()], axis = 0))
 
 """========== Photons =========="""
 lead_photon_pt_mgg_ratio = np.concatenate([nt.lead_pt / nt.mass for nt in WH_ntuples_dict.values()], axis = 0)
@@ -278,4 +278,15 @@ print("=========================================================================
 print(WH_combined_transposed)
 print("===========================================================================")
 print(WH_combined_transposed.shape)
-np.save(file = f"{args.output_filename}.npy", arr = WH_combined_transposed)
+print("===========================================================================")
+print(weight)
+print("===========================================================================")
+print(weight.shape)
+################################################################################################################################
+########## Save the feature arrays and weight array to npy files separately ##########
+################################################################################################################################
+output_dir = "/eos/home-s/shuofu/my_higgsdna/VH_to_leptonic_GG/WH_BDT/features_trial3_include_weights"
+os.makedirs(output_dir, exist_ok = True)
+
+np.save(file = os.path.join(output_dir, f"{args.output_filename}.npy"), arr = WH_combined_transposed)
+np.save(file = os.path.join(output_dir, f"{args.output_filename}_weights.npy"), arr = weight)
