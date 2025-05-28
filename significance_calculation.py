@@ -187,7 +187,7 @@ print("\n")
 ################################################################################################################################
 ########## Load the XGBoost model ##########
 ################################################################################################################################
-model_path = "/eos/home-s/shuofu/my_higgsdna/VH_to_leptonic_GG/WH_BDT/WH_leptonic_classifier_1500_3_0.05_10.json"
+model_path = "/eos/home-s/shuofu/my_higgsdna/VH_to_leptonic_GG/WH_BDT/WH_leptonic_classifier_1500_3_0.05_10_3.json"
 model = xgb.XGBClassifier()
 model.load_model(model_path)
 
@@ -429,7 +429,7 @@ bdt_bkg = model.predict_proba(WH_background_combined_transposed)[:, 1]
 
 """========== Asimov Significance Definition =========="""
 def asimov_significance(S, B):
-    Br = 10 # Background regularization term (Ref: The Higgs boson machine learning challenge)
+    Br = 0 # Background regularization term (Ref: The Higgs boson machine learning challenge)
     if B <= 0: return 0
     return sqrt(2 * ((S + B + Br) * log(1 + S / (B + Br)) - S))
 
@@ -452,22 +452,23 @@ for t in thresholds:
 
 """========== Plotting Asimov Significance vs. BDT cut =========="""
 hep.style.use("CMS")
+plot_date = 20250528
 plt.figure(figsize=(10, 10))
 # plt.hist(bdt_sig, bins=100, weights=WH_signal_weight, histtype='step', label="Signal", color='blue')
 # plt.hist(bdt_bkg, bins=100, weights=WH_background_weight, histtype='step', label="Background", color='orange')
-plt.plot(thresholds, Z_list, label="Asimov Significance $Z$")
+plt.plot(thresholds, Z_list, label="Significance $Z$")
 plt.axvline(best_cut, color='red', linestyle='--', label=f"Best Cut = {best_cut:.3f}")
 plt.xlabel("BDT Score Cut")
-plt.ylabel("Asimov Significance $Z$")
-plt.title("Optimizing BDT Cut for WH Leptonic")
+plt.ylabel("Significance $Z$")
+plt.title("Optimizing BDT Cut for WH-Leptonic")
 plt.grid(True)
 plt.legend()
 plt.tight_layout()
-plt.savefig("asimov_significance_scan.png")
+plt.savefig(f"AMS_scan_{plot_date}.png") # AMS stands for Approximate Median Significance or Asimov signoficance.
 
 """========== Print optimal results =========="""
 print(f"Best BDT cut: {best_cut:.3f}")
-print(f"Maximum Asimov significance: Z = {best_Z:.2f}")
+print(f"Maximum significance: Z = {best_Z:.2f}")
 
 # --- For signal ---
 sorted_sig_indices = np.argsort(bdt_sig)
@@ -515,7 +516,7 @@ plt.title("Cumulative Yield Above BDT Cut")
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
-plt.savefig("cumulative_yield_binned_histogram.png")
+plt.savefig(f"cumulative_yield_binned_histogram_{plot_date}.png")
 
 # plt.figure(figsize=(10, 10))
 # plt.step(bdt_sig_sorted, cum_sig_yield, where='post', label="Signal", color='blue')
