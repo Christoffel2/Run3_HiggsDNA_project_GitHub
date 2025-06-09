@@ -47,35 +47,35 @@ def get_dimuon_4momentum(sample):
     )
     return lead_4momentum + sublead_4momentum
 
-def get_electron_met_transverse_momentum(sample):
-    lead_electron_transverse_momentum = vector.array(
+def electron_MET_transverse_momentum_vector(sample):
+    lead_electron_transverse_momentum_vector = vector.array(
         {
             "rho" : sample.electron0_pt,
             "phi" : sample.electron0_phi
         }
     )
-    met_transverse_momentum = vector.array(
+    MET_transverse_momentum_vector = vector.array(
         {
             "rho" : sample.MET_pt,
             "phi" : sample.MET_phi
         }
     )
-    return lead_electron_transverse_momentum + met_transverse_momentum
+    return lead_electron_transverse_momentum_vector + MET_transverse_momentum_vector
 
-def get_muon_met_transverse_momentum(sample):
-    lead_muon_transverse_momentum = vector.array(
+def muon_MET_transverse_momentum_vector(sample):
+    lead_muon_transverse_momentum_vector = vector.array(
         {
             "rho" : sample.muon0_pt,
             "phi" : sample.muon0_phi
         }
     )
-    met_transverse_momentum = vector.array(
+    MET_transverse_momentum_vector = vector.array(
         {
             "rho" : sample.MET_pt,
             "phi" : sample.MET_phi
         }
     )
-    return lead_muon_transverse_momentum + met_transverse_momentum
+    return lead_muon_transverse_momentum_vector + MET_transverse_momentum_vector
 
 preEE_luminosity = 7.9804 * 1000
 postEE_luminosity = 26.6717 * 1000
@@ -125,8 +125,8 @@ basepath = {
 print("===========================================================================")
 for tag, path in basepath.items():
     for category in os.listdir(basepath[tag]):
-        if category == "Data":
-            print(f"2022-{tag} Data Ntuples are excluded.")
+        if category == "Data" or category == "ggH_powheg":
+            print(f"2022-{tag} Data/ggH_powheg (since ggH_powheg didn't used in training) Ntuples are excluded.")
             pass
         elif category == "WH_signal":
             process_path = os.path.join(basepath[tag], category)
@@ -169,13 +169,13 @@ WH_background_dict = {}
 for name, ntuple in signal_dict.items():
     # Selection cuts on lepton id/iso, lepton pt, and deltaR between lepton and photon are included when making the ntuples.
     ntuple = ntuple[(ntuple.lead_mvaID > -0.4) & (ntuple.sublead_mvaID > -0.4)] # Photon id cut.
-    ntuple = ntuple[(ntuple.n_electrons == 1) | (ntuple.n_muons == 1)] # One-lepton cut.
+    ntuple = ntuple[(ntuple.n_electrons + ntuple.n_muons) == 1] # One-lepton cut.
     WH_signal_dict[name] = ntuple
 
 for name, ntuple in background_dict.items():
     # Selection cuts on lepton id/iso, lepton pt, and deltaR between lepton and photon are included when making the ntuples.
     ntuple = ntuple[(ntuple.lead_mvaID > -0.4) & (ntuple.sublead_mvaID > -0.4)] # Photon id cut.
-    ntuple = ntuple[(ntuple.n_electrons == 1) | (ntuple.n_muons == 1)] # One-lepton cut.
+    ntuple = ntuple[(ntuple.n_electrons + ntuple.n_muons) == 1] # One-lepton cut.
     WH_background_dict[name] = ntuple
 
 print("===========================================================================")
@@ -187,239 +187,94 @@ print("\n")
 ################################################################################################################################
 ########## Load the XGBoost model ##########
 ################################################################################################################################
-model_path = "/eos/home-s/shuofu/my_higgsdna/VH_to_leptonic_GG/WH_BDT/WH_leptonic_classifier_1500_3_0.05_10_3.json"
+model_path = "/eos/home-s/shuofu/my_higgsdna/VH_to_leptonic_GG/WH_BDT/WH_leptonic_classifier_1500_3_0.05_10_4.json"
 model = xgb.XGBClassifier()
 model.load_model(model_path)
 
 ################################################################################################################################
 ########## Input variables for WH BDT ##########
 ################################################################################################################################
-########## For WH-leptonic signals ##########
-"""========== weight =========="""
-WH_signal_weight = np.concatenate([get_weight(name, nt) for name, nt in WH_signal_dict.items()], axis = 0)
-"""========== Photons =========="""
-lead_photon_pt_mgg_ratio = np.concatenate([nt.lead_pt / nt.mass for nt in WH_signal_dict.values()], axis = 0)
-sublead_photon_pt_mgg_ratio = np.concatenate([nt.sublead_pt / nt.mass for nt in WH_signal_dict.values()], axis = 0)
-lead_photon_eta = np.concatenate([nt.lead_eta for nt in WH_signal_dict.values()], axis = 0)
-sublead_photon_eta = np.concatenate([nt.sublead_eta for nt in WH_signal_dict.values()], axis = 0)
-cos_delta_phi_photons = np.concatenate([np.cos(nt.lead_phi - nt.sublead_phi) for nt in WH_signal_dict.values()], axis = 0)
-max_photon_id = np.concatenate([np.maximum(nt.lead_mvaID, nt.sublead_mvaID) for nt in WH_signal_dict.values()], axis = 0)
-min_photon_id = np.concatenate([np.minimum(nt.lead_mvaID, nt.sublead_mvaID) for nt in WH_signal_dict.values()], axis = 0)
-lead_photon_pixelSeed = np.concatenate([nt.lead_pixelSeed for nt in WH_signal_dict.values()], axis = 0)
-sublead_photon_pixelSeed = np.concatenate([nt.sublead_pixelSeed for nt in WH_signal_dict.values()], axis = 0)
-"""========== Leptons =========="""
-lead_electron_pt = np.concatenate([nt.electron0_pt for nt in WH_signal_dict.values()], axis = 0)
-lead_muon_pt = np.concatenate([nt.muon0_pt for nt in WH_signal_dict.values()], axis = 0)
-lead_electron_eta = np.concatenate([nt.electron0_eta for nt in WH_signal_dict.values()], axis = 0)
-lead_muon_eta = np.concatenate([nt.muon0_eta for nt in WH_signal_dict.values()], axis = 0)
-delta_R_ld_photon_ld_electron = np.concatenate([np.sqrt((nt.lead_eta - nt.electron0_eta)**2 + (nt.lead_phi - nt.electron0_phi)**2) for nt in WH_signal_dict.values()], axis = 0)
-delta_R_sld_photon_ld_electron = np.concatenate([np.sqrt((nt.sublead_eta - nt.electron0_eta)**2 + (nt.sublead_phi - nt.electron0_phi)**2) for nt in WH_signal_dict.values()], axis = 0)
-delta_R_ld_photon_ld_muon = np.concatenate([np.sqrt((nt.lead_eta - nt.muon0_eta)**2 + (nt.lead_phi - nt.muon0_phi)**2) for nt in WH_signal_dict.values()], axis = 0)
-delta_R_sld_photon_ld_muon = np.concatenate([np.sqrt((nt.sublead_eta - nt.muon0_eta)**2 + (nt.sublead_phi - nt.muon0_phi)**2) for nt in WH_signal_dict.values()], axis = 0)
+def feature_creation(sample_dict):
+    if all("Data" in key for key in sample_dict.keys()):
+        pass
+    else:
+        """========== weight =========="""
+        weight = np.array(np.concatenate([get_weight(name, nt) for name, nt in sample_dict.items() if "Data" not in name], axis = 0))
 
-# Lepton (here, electron + muon) information is obtained by concatenating the lead-electron and lead-muon arrays.
-is_electron_event = np.concatenate([nt.n_electrons == 1 for nt in WH_signal_dict.values()])
-is_muon_event = ~is_electron_event
+    """========== Photons =========="""
+    lead_photon_pt_mgg_ratio = np.concatenate([nt.lead_pt / nt.mass for nt in sample_dict.values()], axis = 0)
+    sublead_photon_pt_mgg_ratio = np.concatenate([nt.sublead_pt / nt.mass for nt in sample_dict.values()], axis = 0)
+    lead_photon_eta = np.concatenate([nt.lead_eta for nt in sample_dict.values()], axis = 0)
+    sublead_photon_eta = np.concatenate([nt.sublead_eta for nt in sample_dict.values()], axis = 0)
+    cos_delta_phi_photons = np.concatenate([np.cos(nt.lead_phi - nt.sublead_phi) for nt in sample_dict.values()], axis = 0)
+    max_photon_id = np.concatenate([np.maximum(nt.lead_mvaID, nt.sublead_mvaID) for nt in sample_dict.values()], axis = 0)
+    min_photon_id = np.concatenate([np.minimum(nt.lead_mvaID, nt.sublead_mvaID) for nt in sample_dict.values()], axis = 0)
+    lead_photon_pixelSeed = np.concatenate([nt.lead_pixelSeed for nt in sample_dict.values()], axis = 0)
+    sublead_photon_pixelSeed = np.concatenate([nt.sublead_pixelSeed for nt in sample_dict.values()], axis = 0)
 
-lead_lepton_pt = np.where(is_electron_event, lead_electron_pt, lead_muon_pt)
-lead_lepton_eta = np.where(is_electron_event, lead_electron_eta, lead_muon_eta)
-delta_R_ld_photon_ld_lepton = np.where(is_electron_event, delta_R_ld_photon_ld_electron, delta_R_ld_photon_ld_muon)
-delta_R_sld_photon_ld_lepton = np.where(is_electron_event, delta_R_sld_photon_ld_electron, delta_R_sld_photon_ld_muon)
-"""========== Missing Transverse Energy =========="""
-met_pt = np.concatenate([nt.MET_pt for nt in WH_signal_dict.values()], axis = 0)
-met_sumEt = np.concatenate([nt.MET_sumEt for nt in WH_signal_dict.values()], axis = 0)
-met_electron_Mt = np.concatenate([np.sqrt(2 * nt.electron0_pt * nt.MET_pt * (1 - np.cos(nt.electron0_phi - nt.MET_phi))) for nt in WH_signal_dict.values()], axis = 0)
-met_muon_Mt = np.concatenate([np.sqrt(2 * nt.muon0_pt * nt.MET_pt * (1 - np.cos(nt.muon0_phi - nt.MET_phi))) for nt in WH_signal_dict.values()], axis = 0)
+    """========== Leptons =========="""
+    lead_electron_pt = np.concatenate([nt.electron0_pt for nt in sample_dict.values()], axis = 0)
+    lead_muon_pt = np.concatenate([nt.muon0_pt for nt in sample_dict.values()], axis = 0)
+    lead_electron_eta = np.concatenate([nt.electron0_eta for nt in sample_dict.values()], axis = 0)
+    lead_muon_eta = np.concatenate([nt.muon0_eta for nt in sample_dict.values()], axis = 0)
+    delta_R_ld_photon_ld_electron = np.concatenate([np.sqrt((nt.lead_eta - nt.electron0_eta)**2 + (nt.lead_phi - nt.electron0_phi)**2) for nt in sample_dict.values()], axis = 0)
+    delta_R_sld_photon_ld_electron = np.concatenate([np.sqrt((nt.sublead_eta - nt.electron0_eta)**2 + (nt.sublead_phi - nt.electron0_phi)**2) for nt in sample_dict.values()], axis = 0)
+    delta_R_ld_photon_ld_muon = np.concatenate([np.sqrt((nt.lead_eta - nt.muon0_eta)**2 + (nt.lead_phi - nt.muon0_phi)**2) for nt in sample_dict.values()], axis = 0)
+    delta_R_sld_photon_ld_muon = np.concatenate([np.sqrt((nt.sublead_eta - nt.muon0_eta)**2 + (nt.sublead_phi - nt.muon0_phi)**2) for nt in sample_dict.values()], axis = 0)
 
-met_lepton_Mt = np.where(is_electron_event, met_electron_Mt, met_muon_Mt)
-"""========== Jets =========="""
-jet_multiplicity = np.concatenate([nt.n_jets for nt in WH_signal_dict.values()], axis = 0)
-jet0_pt = np.concatenate([nt.Jet0_pt for nt in WH_signal_dict.values()], axis = 0)
-jet1_pt = np.concatenate([nt.Jet1_pt for nt in WH_signal_dict.values()], axis = 0)
-jet2_pt = np.concatenate([nt.Jet2_pt for nt in WH_signal_dict.values()], axis = 0)
-jet3_pt = np.concatenate([nt.Jet3_pt for nt in WH_signal_dict.values()], axis = 0)
-jet_max_btagPNetB = np.concatenate([np.maximum.reduce([nt.Jet0_btagPNetB, nt.Jet1_btagPNetB, nt.Jet2_btagPNetB, nt.Jet3_btagPNetB]) for nt in WH_signal_dict.values()], axis = 0)
-jet_max_btagDeepFlavB = np.concatenate([np.maximum.reduce([nt.Jet0_btagDeepFlavB, nt.Jet1_btagDeepFlavB, nt.Jet2_btagDeepFlavB, nt.Jet3_btagDeepFlavB]) for nt in WH_signal_dict.values()], axis = 0)
-jet_max_btagRobustParTAK4B = np.concatenate([np.maximum.reduce([nt.Jet0_btagRobustParTAK4B, nt.Jet1_btagRobustParTAK4B, nt.Jet2_btagRobustParTAK4B, nt.Jet3_btagRobustParTAK4B]) for nt in WH_signal_dict.values()], axis = 0)
-"""========== WH Topology =========="""
-delta_phi_diphoton_W_electron = np.concatenate([nt.phi - get_electron_met_transverse_momentum(nt).phi for nt in WH_signal_dict.values()], axis = 0)
-delta_phi_diphoton_W_muon = np.concatenate([nt.phi - get_muon_met_transverse_momentum(nt).phi for nt in WH_signal_dict.values()], axis = 0)
-WH_electron_pt_balance = np.concatenate([(nt.pt - get_electron_met_transverse_momentum(nt).rho) / nt.pt for nt in WH_signal_dict.values()], axis = 0)
-WH_muon_pt_balance = np.concatenate([(nt.pt - get_muon_met_transverse_momentum(nt).rho) / nt.pt for nt in WH_signal_dict.values()], axis = 0)
-Min_DPhi_W_Jets = np.concatenate([nt.Min_DPhi_W_Jets for nt in WH_signal_dict.values()], axis = 0)
+    # Lepton (here, electron + muon) information is obtained by concatenating the lead-electron and lead-muon arrays.
+    is_electron_event = np.concatenate([nt.n_electrons == 1 for nt in sample_dict.values()])
 
-delta_phi_diphoton_W_lepton = np.where(is_electron_event, delta_phi_diphoton_W_electron, delta_phi_diphoton_W_muon)
-WH_lepton_pt_balance = np.where(is_electron_event, WH_electron_pt_balance, WH_muon_pt_balance)
+    lead_lepton_pt = np.where(is_electron_event, lead_electron_pt, lead_muon_pt)
+    lead_lepton_eta = np.where(is_electron_event, lead_electron_eta, lead_muon_eta)
+    delta_R_ld_photon_ld_lepton = np.where(is_electron_event, delta_R_ld_photon_ld_electron, delta_R_ld_photon_ld_muon)
+    delta_R_sld_photon_ld_lepton = np.where(is_electron_event, delta_R_sld_photon_ld_electron, delta_R_sld_photon_ld_muon)
+    """========== Missing Transverse Energy =========="""
+    met_pt = np.concatenate([nt.MET_pt for nt in sample_dict.values()], axis = 0)
+    met_sumEt = np.concatenate([nt.MET_sumEt for nt in sample_dict.values()], axis = 0)
+    met_electron_Mt = np.concatenate([np.sqrt(2 * nt.electron0_pt * nt.MET_pt * (1 - np.cos(nt.electron0_phi - nt.MET_phi))) for nt in sample_dict.values()], axis = 0)
+    met_muon_Mt = np.concatenate([np.sqrt(2 * nt.muon0_pt * nt.MET_pt * (1 - np.cos(nt.muon0_phi - nt.MET_phi))) for nt in sample_dict.values()], axis = 0)
 
-WH_signal_combined = np.array(
-    np.nan_to_num(
-        [
-            lead_photon_pt_mgg_ratio, sublead_photon_pt_mgg_ratio, lead_photon_eta, sublead_photon_eta, cos_delta_phi_photons, max_photon_id, min_photon_id, lead_photon_pixelSeed, sublead_photon_pixelSeed,
-            lead_lepton_pt, lead_lepton_eta, delta_R_ld_photon_ld_lepton, delta_R_sld_photon_ld_lepton,
-            met_pt, met_sumEt, met_lepton_Mt,
-            jet_multiplicity, jet0_pt, jet1_pt, jet2_pt, jet3_pt, jet_max_btagPNetB, jet_max_btagDeepFlavB, jet_max_btagRobustParTAK4B,
-            delta_phi_diphoton_W_lepton, Min_DPhi_W_Jets, WH_lepton_pt_balance
-        ], nan = 0.0
+    met_lepton_Mt = np.where(is_electron_event, met_electron_Mt, met_muon_Mt)
+    """========== Jets =========="""
+    jet_multiplicity = np.concatenate([nt.n_jets for nt in sample_dict.values()], axis = 0)
+    jet0_pt = np.concatenate([nt.Jet0_pt for nt in sample_dict.values()], axis = 0)
+    jet1_pt = np.concatenate([nt.Jet1_pt for nt in sample_dict.values()], axis = 0)
+    jet2_pt = np.concatenate([nt.Jet2_pt for nt in sample_dict.values()], axis = 0)
+    jet3_pt = np.concatenate([nt.Jet3_pt for nt in sample_dict.values()], axis = 0)
+    jet_max_btagPNetB = np.concatenate([np.maximum.reduce([nt.Jet0_btagPNetB, nt.Jet1_btagPNetB, nt.Jet2_btagPNetB, nt.Jet3_btagPNetB]) for nt in sample_dict.values()], axis = 0)
+    jet_max_btagDeepFlavB = np.concatenate([np.maximum.reduce([nt.Jet0_btagDeepFlavB, nt.Jet1_btagDeepFlavB, nt.Jet2_btagDeepFlavB, nt.Jet3_btagDeepFlavB]) for nt in sample_dict.values()], axis = 0)
+    jet_max_btagRobustParTAK4B = np.concatenate([np.maximum.reduce([nt.Jet0_btagRobustParTAK4B, nt.Jet1_btagRobustParTAK4B, nt.Jet2_btagRobustParTAK4B, nt.Jet3_btagRobustParTAK4B]) for nt in sample_dict.values()], axis = 0)
+
+    """========== WH Topology =========="""
+    delta_phi_diphoton_W_electron = np.concatenate([nt.phi - electron_MET_transverse_momentum_vector(nt).phi for nt in sample_dict.values()], axis = 0)
+    delta_phi_diphoton_W_muon = np.concatenate([nt.phi - muon_MET_transverse_momentum_vector(nt).phi for nt in sample_dict.values()], axis = 0)
+    WH_electron_pt_balance = np.concatenate([(nt.pt - electron_MET_transverse_momentum_vector(nt).rho) / nt.pt for nt in sample_dict.values()], axis = 0)
+    WH_muon_pt_balance = np.concatenate([(nt.pt - muon_MET_transverse_momentum_vector(nt).rho) / nt.pt for nt in sample_dict.values()], axis = 0)
+    Min_DPhi_W_Jets = np.concatenate([nt.Min_DPhi_W_Jets for nt in sample_dict.values()], axis = 0)
+
+    delta_phi_diphoton_W_lepton = np.where(is_electron_event, delta_phi_diphoton_W_electron, delta_phi_diphoton_W_muon)
+    WH_lepton_pt_balance = np.where(is_electron_event, WH_electron_pt_balance, WH_muon_pt_balance)
+
+    WH_combined = np.array(
+        np.nan_to_num(
+            [
+                lead_photon_pt_mgg_ratio, sublead_photon_pt_mgg_ratio, lead_photon_eta, sublead_photon_eta, cos_delta_phi_photons, max_photon_id, min_photon_id, lead_photon_pixelSeed, sublead_photon_pixelSeed,
+                lead_lepton_pt, lead_lepton_eta, delta_R_ld_photon_ld_lepton, delta_R_sld_photon_ld_lepton,
+                met_pt, met_sumEt, met_lepton_Mt,
+                jet_multiplicity, jet0_pt, jet1_pt, jet2_pt, jet3_pt, jet_max_btagPNetB, jet_max_btagDeepFlavB, jet_max_btagRobustParTAK4B,
+                delta_phi_diphoton_W_lepton, Min_DPhi_W_Jets, WH_lepton_pt_balance
+            ], nan = 0.0
+        )
     )
-)
-WH_signal_combined_transposed = WH_signal_combined.T
+    WH_combined_transposed = WH_combined.T
+    return WH_combined_transposed
 
-########## For WH-leptonic backgrounds ##########
-WH_background_weight_list = []
-WH_background_feature_list = []
+WH_signal_combined_transposed = feature_creation(WH_signal_dict)
+WH_signal_weight = np.array(np.concatenate([get_weight(name, nt) for name, nt in WH_signal_dict.items()], axis = 0))
+WH_background_combined_transposed = feature_creation(WH_background_dict)
+WH_background_weight = np.array(np.concatenate([get_weight(name, nt) for name, nt in WH_background_dict.items()], axis = 0))
 
-for name, nt in WH_background_dict.items():
-    weight = get_weight(name, nt)
-    if weight is None or len(weight) != len(nt):
-        print(f"[Warning] Skipping {name} due to invalid weight.")
-        continue
-
-    WH_background_weight_list.append(weight)
-
-    # Append features in exactly the same order and condition as used to build WH_background_combined
-    WH_background_feature_list.append((
-        nt.lead_pt / nt.mass,
-        nt.sublead_pt / nt.mass,
-        nt.lead_eta,
-        nt.sublead_eta,
-        np.cos(nt.lead_phi - nt.sublead_phi),
-        np.maximum(nt.lead_mvaID, nt.sublead_mvaID),
-        np.minimum(nt.lead_mvaID, nt.sublead_mvaID),
-        nt.lead_pixelSeed,
-        nt.sublead_pixelSeed,
-        np.where(nt.n_electrons == 1, nt.electron0_pt, nt.muon0_pt),
-        np.where(nt.n_electrons == 1, nt.electron0_eta, nt.muon0_eta),
-        np.where(nt.n_electrons == 1,
-                 np.sqrt((nt.lead_eta - nt.electron0_eta)**2 + (nt.lead_phi - nt.electron0_phi)**2),
-                 np.sqrt((nt.lead_eta - nt.muon0_eta)**2 + (nt.lead_phi - nt.muon0_phi)**2)),
-        np.where(nt.n_electrons == 1,
-                 np.sqrt((nt.sublead_eta - nt.electron0_eta)**2 + (nt.sublead_phi - nt.electron0_phi)**2),
-                 np.sqrt((nt.sublead_eta - nt.muon0_eta)**2 + (nt.sublead_phi - nt.muon0_phi)**2)),
-        nt.MET_pt,
-        nt.MET_sumEt,
-        np.where(nt.n_electrons == 1,
-                 np.sqrt(2 * nt.electron0_pt * nt.MET_pt * (1 - np.cos(nt.electron0_phi - nt.MET_phi))),
-                 np.sqrt(2 * nt.muon0_pt * nt.MET_pt * (1 - np.cos(nt.muon0_phi - nt.MET_phi)))),
-        nt.n_jets,
-        nt.Jet0_pt,
-        nt.Jet1_pt,
-        nt.Jet2_pt,
-        nt.Jet3_pt,
-        np.maximum.reduce([nt.Jet0_btagPNetB, nt.Jet1_btagPNetB, nt.Jet2_btagPNetB, nt.Jet3_btagPNetB]),
-        np.maximum.reduce([nt.Jet0_btagDeepFlavB, nt.Jet1_btagDeepFlavB, nt.Jet2_btagDeepFlavB, nt.Jet3_btagDeepFlavB]),
-        np.maximum.reduce([nt.Jet0_btagRobustParTAK4B, nt.Jet1_btagRobustParTAK4B, nt.Jet2_btagRobustParTAK4B, nt.Jet3_btagRobustParTAK4B]),
-        np.where(nt.n_electrons == 1,
-                 nt.phi - get_electron_met_transverse_momentum(nt).phi,
-                 nt.phi - get_muon_met_transverse_momentum(nt).phi),
-        nt.Min_DPhi_W_Jets,
-        np.where(nt.n_electrons == 1,
-                 (nt.pt - get_electron_met_transverse_momentum(nt).rho) / nt.pt,
-                 (nt.pt - get_muon_met_transverse_momentum(nt).rho) / nt.pt),
-    ))
-
-# Final stacking
-WH_background_weight = np.concatenate(WH_background_weight_list)
-WH_background_combined = np.nan_to_num(np.array([np.concatenate([v[i] for v in WH_background_feature_list]) for i in range(27)]))
-WH_background_combined_transposed = WH_background_combined.T
-
-# """========== weight =========="""
-# WH_background_weight = np.concatenate([get_weight(name, nt) for name, nt in WH_background_dict.items()], axis = 0)
-# """========== Photons =========="""
-# lead_photon_pt_mgg_ratio = np.concatenate([nt.lead_pt / nt.mass for nt in WH_background_dict.values()], axis = 0)
-# sublead_photon_pt_mgg_ratio = np.concatenate([nt.sublead_pt / nt.mass for nt in WH_background_dict.values()], axis = 0)
-# lead_photon_eta = np.concatenate([nt.lead_eta for nt in WH_background_dict.values()], axis = 0)
-# sublead_photon_eta = np.concatenate([nt.sublead_eta for nt in WH_background_dict.values()], axis = 0)
-# cos_delta_phi_photons = np.concatenate([np.cos(nt.lead_phi - nt.sublead_phi) for nt in WH_background_dict.values()], axis = 0)
-# max_photon_id = np.concatenate([np.maximum(nt.lead_mvaID, nt.sublead_mvaID) for nt in WH_background_dict.values()], axis = 0)
-# min_photon_id = np.concatenate([np.minimum(nt.lead_mvaID, nt.sublead_mvaID) for nt in WH_background_dict.values()], axis = 0)
-# lead_photon_pixelSeed = np.concatenate([nt.lead_pixelSeed for nt in WH_background_dict.values()], axis = 0)
-# sublead_photon_pixelSeed = np.concatenate([nt.sublead_pixelSeed for nt in WH_background_dict.values()], axis = 0)
-# """========== Leptons =========="""
-# lead_electron_pt = np.concatenate([nt.electron0_pt for nt in WH_background_dict.values()], axis = 0)
-# lead_muon_pt = np.concatenate([nt.muon0_pt for nt in WH_background_dict.values()], axis = 0)
-# lead_electron_eta = np.concatenate([nt.electron0_eta for nt in WH_background_dict.values()], axis = 0)
-# lead_muon_eta = np.concatenate([nt.muon0_eta for nt in WH_background_dict.values()], axis = 0)
-# delta_R_ld_photon_ld_electron = np.concatenate([np.sqrt((nt.lead_eta - nt.electron0_eta)**2 + (nt.lead_phi - nt.electron0_phi)**2) for nt in WH_background_dict.values()], axis = 0)
-# delta_R_sld_photon_ld_electron = np.concatenate([np.sqrt((nt.sublead_eta - nt.electron0_eta)**2 + (nt.sublead_phi - nt.electron0_phi)**2) for nt in WH_background_dict.values()], axis = 0)
-# delta_R_ld_photon_ld_muon = np.concatenate([np.sqrt((nt.lead_eta - nt.muon0_eta)**2 + (nt.lead_phi - nt.muon0_phi)**2) for nt in WH_background_dict.values()], axis = 0)
-# delta_R_sld_photon_ld_muon = np.concatenate([np.sqrt((nt.sublead_eta - nt.muon0_eta)**2 + (nt.sublead_phi - nt.muon0_phi)**2) for nt in WH_background_dict.values()], axis = 0)
-
-# # Lepton (here, electron + muon) information is obtained by concatenating the lead-electron and lead-muon arrays.
-# is_electron_event = np.concatenate([nt.n_electrons == 1 for nt in WH_background_dict.values()])
-# is_muon_event = ~is_electron_event
-
-# lead_lepton_pt = np.where(is_electron_event, lead_electron_pt, lead_muon_pt)
-# lead_lepton_eta = np.where(is_electron_event, lead_electron_eta, lead_muon_eta)
-# delta_R_ld_photon_ld_lepton = np.where(is_electron_event, delta_R_ld_photon_ld_electron, delta_R_ld_photon_ld_muon)
-# delta_R_sld_photon_ld_lepton = np.where(is_electron_event, delta_R_sld_photon_ld_electron, delta_R_sld_photon_ld_muon)
-# """========== Missing Transverse Energy =========="""
-# met_pt = np.concatenate([nt.MET_pt for nt in WH_background_dict.values()], axis = 0)
-# met_sumEt = np.concatenate([nt.MET_sumEt for nt in WH_background_dict.values()], axis = 0)
-# met_electron_Mt = np.concatenate([np.sqrt(2 * nt.electron0_pt * nt.MET_pt * (1 - np.cos(nt.electron0_phi - nt.MET_phi))) for nt in WH_background_dict.values()], axis = 0)
-# met_muon_Mt = np.concatenate([np.sqrt(2 * nt.muon0_pt * nt.MET_pt * (1 - np.cos(nt.muon0_phi - nt.MET_phi))) for nt in WH_background_dict.values()], axis = 0)
-
-# met_lepton_Mt = np.where(is_electron_event, met_electron_Mt, met_muon_Mt)
-# """========== Jets =========="""
-# jet_multiplicity = np.concatenate([nt.n_jets for nt in WH_background_dict.values()], axis = 0)
-# jet0_pt = np.concatenate([nt.Jet0_pt for nt in WH_background_dict.values()], axis = 0)
-# jet1_pt = np.concatenate([nt.Jet1_pt for nt in WH_background_dict.values()], axis = 0)
-# jet2_pt = np.concatenate([nt.Jet2_pt for nt in WH_background_dict.values()], axis = 0)
-# jet3_pt = np.concatenate([nt.Jet3_pt for nt in WH_background_dict.values()], axis = 0)
-# jet_max_btagPNetB = np.concatenate([np.maximum.reduce([nt.Jet0_btagPNetB, nt.Jet1_btagPNetB, nt.Jet2_btagPNetB, nt.Jet3_btagPNetB]) for nt in WH_background_dict.values()], axis = 0)
-# jet_max_btagDeepFlavB = np.concatenate([np.maximum.reduce([nt.Jet0_btagDeepFlavB, nt.Jet1_btagDeepFlavB, nt.Jet2_btagDeepFlavB, nt.Jet3_btagDeepFlavB]) for nt in WH_background_dict.values()], axis = 0)
-# jet_max_btagRobustParTAK4B = np.concatenate([np.maximum.reduce([nt.Jet0_btagRobustParTAK4B, nt.Jet1_btagRobustParTAK4B, nt.Jet2_btagRobustParTAK4B, nt.Jet3_btagRobustParTAK4B]) for nt in WH_background_dict.values()], axis = 0)
-# """========== WH Topology =========="""
-# delta_phi_diphoton_W_electron = np.concatenate([nt.phi - get_electron_met_transverse_momentum(nt).phi for nt in WH_background_dict.values()], axis = 0)
-# delta_phi_diphoton_W_muon = np.concatenate([nt.phi - get_muon_met_transverse_momentum(nt).phi for nt in WH_background_dict.values()], axis = 0)
-# WH_electron_pt_balance = np.concatenate([(nt.pt - get_electron_met_transverse_momentum(nt).rho) / nt.pt for nt in WH_background_dict.values()], axis = 0)
-# WH_muon_pt_balance = np.concatenate([(nt.pt - get_muon_met_transverse_momentum(nt).rho) / nt.pt for nt in WH_background_dict.values()], axis = 0)
-# Min_DPhi_W_Jets = np.concatenate([nt.Min_DPhi_W_Jets for nt in WH_background_dict.values()], axis = 0)
-
-# delta_phi_diphoton_W_lepton = np.where(is_electron_event, delta_phi_diphoton_W_electron, delta_phi_diphoton_W_muon)
-# WH_lepton_pt_balance = np.where(is_electron_event, WH_electron_pt_balance, WH_muon_pt_balance)
-
-# WH_background_combined = np.array(
-#     np.nan_to_num(
-#         [
-#             lead_photon_pt_mgg_ratio, sublead_photon_pt_mgg_ratio, lead_photon_eta, sublead_photon_eta, cos_delta_phi_photons, max_photon_id, min_photon_id, lead_photon_pixelSeed, sublead_photon_pixelSeed,
-#             lead_lepton_pt, lead_lepton_eta, delta_R_ld_photon_ld_lepton, delta_R_sld_photon_ld_lepton,
-#             met_pt, met_sumEt, met_lepton_Mt,
-#             jet_multiplicity, jet0_pt, jet1_pt, jet2_pt, jet3_pt, jet_max_btagPNetB, jet_max_btagDeepFlavB, jet_max_btagRobustParTAK4B,
-#             delta_phi_diphoton_W_lepton, Min_DPhi_W_Jets, WH_lepton_pt_balance
-#         ], nan = 0.0
-#     )
-# )
-# WH_background_combined_transposed = WH_background_combined.T
-
-var = [
-    "ldPho_pt_to_M",                  # f0
-    "sldPho_pt_to_M",                 # f1
-    "ldPho_eta",
-    "sldPho_eta",
-    "cos_delta_phi_ldPho_sldPho",
-    "max_Pho_id",                     # f5
-    "min_Pho_id",
-    "ldPho_pixel_seed",
-    "sldPho_pixel_seed",
-    "ld_Lep_pt",
-    "ld_Lep_eta",                     # f10
-    "delta_R_ldPho_ldLep",
-    "delta_R_sldPho_ldLep",
-    "MET_pt",
-    "MET_SumEt",
-    "MET_Lep_mt",                     # f15
-    "Jet_multiplicity",
-    "Jet0_pt",
-    "Jet1_pt",
-    "Jet2_pt",
-    "Jet3_pt",                        # f20
-    "jet_max_btagPNetB",
-    "jet_max_btagDeepFlavB",
-    "jet_max_btagRobustParTAK4B",
-    "delta_phi_diPho_W_Lep",
-    "min_delta_phi_W_Jets",           # f25
-    "WH_Lep_pt_balance"
-]
 ################################################################################################################################
 ########## Continue: Apply BDT and Compute Significance ##########
 ################################################################################################################################
@@ -429,7 +284,7 @@ bdt_bkg = model.predict_proba(WH_background_combined_transposed)[:, 1]
 
 """========== Asimov Significance Definition =========="""
 def asimov_significance(S, B):
-    Br = 0 # Background regularization term (Ref: The Higgs boson machine learning challenge)
+    Br = 10 # Background regularization term (Ref: The Higgs boson machine learning challenge)
     if B <= 0: return 0
     return sqrt(2 * ((S + B + Br) * log(1 + S / (B + Br)) - S))
 
@@ -452,7 +307,7 @@ for t in thresholds:
 
 """========== Plotting Asimov Significance vs. BDT cut =========="""
 hep.style.use("CMS")
-plot_date = 20250528
+plot_date = "20250609"
 plt.figure(figsize=(10, 10))
 # plt.hist(bdt_sig, bins=100, weights=WH_signal_weight, histtype='step', label="Signal", color='blue')
 # plt.hist(bdt_bkg, bins=100, weights=WH_background_weight, histtype='step', label="Background", color='orange')
