@@ -46,7 +46,7 @@ outdir = "/eos/home-s/shuofu/my_higgsdna/VH_to_leptonic_GG/WH_BDT"
 ###### Background npy for training and validation ######
 ####################################################################################
 # Each sample except ggH is split into 70% for training and 30% for validation.
-basepath = "/eos/home-s/shuofu/my_higgsdna/VH_to_leptonic_GG/WH_BDT/features_trial3_include_weights"
+basepath = "/eos/home-s/shuofu/my_higgsdna/VH_to_leptonic_GG/WH_BDT/features_trial4_include_weights"
 ########## Diphoton ##########
 Diphoton_train_val_path = f"{basepath}/Diphoton_train_val.npy"
 Diphoton_weight_path = f"{basepath}/Diphoton_train_val_weights.npy"
@@ -204,7 +204,7 @@ results = XGBEngine.evals_result()
 epochs = len(results['validation_0']['logloss'])
 x_axis = range(0, epochs)
 
-version = 3
+version = 4
 suffix = f'{n_estimators}_{max_depth}_{learning_rate}_{early_stopping_rounds}_{version}'
 
 hep.style.use("CMS")

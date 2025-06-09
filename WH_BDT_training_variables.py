@@ -118,7 +118,10 @@ def get_weight(ntuple_name, ntuple):
         total_sum_genWeight = 1
 
     if ntuple_name_without_suffix in cross_sections:
-        xsec = cross_sections[ntuple_name_without_suffix]
+        if "M_125" in ntuple_name_without_suffix:
+            xsec = cross_sections[ntuple_name_without_suffix] * 0.0025 # 0.0025 is the branching ratio of H -> gamma gamma.
+        else:
+            xsec = cross_sections[ntuple_name_without_suffix]
         return luminosity * xsec * (ntuple.genWeight / total_sum_genWeight)
     else:
         return None
@@ -156,7 +159,7 @@ WH_ntuples_dict = {}
 for name, ntuple in ntuples_dict.items():
     # Selection cuts on lepton id/iso, lepton pt, and deltaR between lepton and photon are included when making the ntuples.
     ntuple = ntuple[(ntuple.lead_mvaID > -0.4) & (ntuple.sublead_mvaID > -0.4)] # Photon id cut.
-    ntuple = ntuple[(ntuple.n_electrons == 1) | (ntuple.n_muons == 1)] # One-lepton cut.
+    ntuple = ntuple[(ntuple.n_electrons + ntuple.n_muons) == 1] # One-lepton cut.
     WH_ntuples_dict[name] = ntuple
 
 print("===========================================================================")
@@ -226,18 +229,6 @@ Min_DPhi_W_Jets = np.concatenate([nt.Min_DPhi_W_Jets for nt in WH_ntuples_dict.v
 delta_phi_diphoton_W_lepton = np.where(is_electron_event, delta_phi_diphoton_W_electron, delta_phi_diphoton_W_muon)
 WH_lepton_pt_balance = np.where(is_electron_event, WH_electron_pt_balance, WH_muon_pt_balance)
 
-# WH_combined = np.array(
-#     np.nan_to_num(
-#         [
-#             lead_photon_pt_mgg_ratio, sublead_photon_pt_mgg_ratio, lead_photon_eta, sublead_photon_eta, cos_delta_phi_photons, max_photon_id, min_photon_id, lead_photon_pixelSeed, sublead_photon_pixelSeed,
-#             lead_electron_pt, lead_muon_pt, lead_electron_eta, lead_muon_eta, delta_R_ld_photon_ld_electron, delta_R_sld_photon_ld_electron, delta_R_ld_photon_ld_muon, delta_R_sld_photon_ld_muon,
-#             met_pt, met_sumEt, met_electron_Mt, met_muon_Mt,
-#             jet_multiplicity, jet0_pt, jet1_pt, jet2_pt, jet3_pt, jet_max_btagPNetB, jet_max_btagDeepFlavB, jet_max_btagRobustParTAK4B,
-#             delta_phi_diphoton_W_electron, delta_phi_diphoton_W_muon, Min_DPhi_W_Jets, WH_electron_pt_balance, WH_muon_pt_balance
-#         ], nan = 0.0
-#     )
-# )
-
 # WH_combined array with electron and muon concatenated into lepton.
 WH_combined = np.array(
     np.nan_to_num(
@@ -256,22 +247,7 @@ print(type(WH_combined))
 print(WH_combined.shape)
 print("===========================================================================")
 print("\n")
-# WH_combined_numpy = [
-#     np.array([np.nan_to_num(ak.to_numpy(x), nan = 0.0) for x in row]) # To replace NaN elements with 0
-#     for row in WH_combined
-# ]
-# WH_combined_numpy = []
-# for row in WH_combined:
-#     # row: list of 35 arrays of shape (N_events,)
-#     np_features = [np.nan_to_num(ak.to_numpy(x), nan=0.0) for x in row]  # list of (N_events,)
-#     row_np = np.stack(np_features, axis=1)  # shape: (N_events, 35)
-#     WH_combined_numpy.append(row_np)
 
-# Step 2: Concatenate all ntuples (QCD subprocesses) together
-# WH_final_array = np.concatenate(WH_combined_numpy, axis=0)
-
-# WH_combined_transposed = np.array([arr.T for arr in WH_combined])
-# output_array = np.concatenate(WH_combined_transposed, axis = 0)
 WH_combined_transposed = WH_combined.T
 print("output_array:")
 print("===========================================================================")
@@ -285,7 +261,7 @@ print(weight.shape)
 ################################################################################################################################
 ########## Save the feature arrays and weight array to npy files separately ##########
 ################################################################################################################################
-output_dir = "/eos/home-s/shuofu/my_higgsdna/VH_to_leptonic_GG/WH_BDT/features_trial3_include_weights"
+output_dir = "/eos/home-s/shuofu/my_higgsdna/VH_to_leptonic_GG/WH_BDT/features_trial4_include_weights"
 os.makedirs(output_dir, exist_ok = True)
 
 np.save(file = os.path.join(output_dir, f"{args.output_filename}.npy"), arr = WH_combined_transposed)
