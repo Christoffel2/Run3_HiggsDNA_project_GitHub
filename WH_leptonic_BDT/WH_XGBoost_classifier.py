@@ -204,14 +204,14 @@ results = XGBEngine.evals_result()
 epochs = len(results['validation_0']['logloss'])
 x_axis = range(0, epochs)
 
-version = 4
+version = 5
 suffix = f'{n_estimators}_{max_depth}_{learning_rate}_{early_stopping_rounds}_{version}'
 
 hep.style.use("CMS")
 # Plot training/validation logloss
 fig, ax = plt.subplots(figsize=(14, 14))
-ax.plot(x_axis, results['validation_0']['logloss'], label='Train')
-ax.plot(x_axis, results['validation_1']['logloss'], label='Validation')
+ax.plot(x_axis, results['validation_0']['logloss'], label='Train', linewidth = 3, color = "blue")
+ax.plot(x_axis, results['validation_1']['logloss'], label='Validation', linewidth = 3, color = "orange")
 ax.legend()
 ax.set_ylabel(ylabel = 'Log Loss', fontsize = "medium")
 ax.set_xlabel(xlabel = 'Number of Trees', fontsize = "medium")
@@ -268,8 +268,8 @@ plt.savefig(f'{outdir}/roc_{suffix}.png')
 sig_mask = Y_val == 1
 bkg_mask = Y_val == 0
 fig, ax = plt.subplots()
-ax.hist(y_val_pred_proba[sig_mask], bins=60, label='Signal (Val)', histtype='step', weights = W_val[sig_mask])
-ax.hist(y_val_pred_proba[bkg_mask], bins=60, label='Background (Val)', histtype='step', weights = W_val[bkg_mask])
+ax.hist(y_val_pred_proba[sig_mask], bins=60, label='Signal (Val)', histtype='step', weights = W_val[sig_mask], linewidth = 3, color = "blue")
+ax.hist(y_val_pred_proba[bkg_mask], bins=60, label='Background (Val)', histtype='step', weights = W_val[bkg_mask], linewidth = 3, color = "orange")
 ax.set_yscale('log')
 ax.set_xlabel(xlabel = "BDT response", fontsize = "medium")
 ax.legend(loc='upper right')

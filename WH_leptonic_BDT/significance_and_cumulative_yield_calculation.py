@@ -239,12 +239,14 @@ def feature_creation(sample_dict):
     """========== Jets =========="""
     jet_multiplicity = np.concatenate([nt.n_jets for nt in sample_dict.values()], axis = 0)
     jet0_pt = np.concatenate([nt.Jet0_pt for nt in sample_dict.values()], axis = 0)
-    jet1_pt = np.concatenate([nt.Jet1_pt for nt in sample_dict.values()], axis = 0)
-    jet2_pt = np.concatenate([nt.Jet2_pt for nt in sample_dict.values()], axis = 0)
-    jet3_pt = np.concatenate([nt.Jet3_pt for nt in sample_dict.values()], axis = 0)
+    ###### For WH-leptonic process, only 1 jet is needed. Therefore, I comment out the other jets. ######
+    # jet1_pt = np.concatenate([nt.Jet1_pt for nt in sample_dict.values()], axis = 0)
+    # jet2_pt = np.concatenate([nt.Jet2_pt for nt in sample_dict.values()], axis = 0)
+    # jet3_pt = np.concatenate([nt.Jet3_pt for nt in sample_dict.values()], axis = 0)
     jet_max_btagPNetB = np.concatenate([np.maximum.reduce([nt.Jet0_btagPNetB, nt.Jet1_btagPNetB, nt.Jet2_btagPNetB, nt.Jet3_btagPNetB]) for nt in sample_dict.values()], axis = 0)
-    jet_max_btagDeepFlavB = np.concatenate([np.maximum.reduce([nt.Jet0_btagDeepFlavB, nt.Jet1_btagDeepFlavB, nt.Jet2_btagDeepFlavB, nt.Jet3_btagDeepFlavB]) for nt in sample_dict.values()], axis = 0)
-    jet_max_btagRobustParTAK4B = np.concatenate([np.maximum.reduce([nt.Jet0_btagRobustParTAK4B, nt.Jet1_btagRobustParTAK4B, nt.Jet2_btagRobustParTAK4B, nt.Jet3_btagRobustParTAK4B]) for nt in sample_dict.values()], axis = 0)
+    ###### When considering the b-tagging score, choose one from btagPNetB, btagDeepFlavB, or btagRobustParTAK4B. #####
+    # jet_max_btagDeepFlavB = np.concatenate([np.maximum.reduce([nt.Jet0_btagDeepFlavB, nt.Jet1_btagDeepFlavB, nt.Jet2_btagDeepFlavB, nt.Jet3_btagDeepFlavB]) for nt in sample_dict.values()], axis = 0)
+    # jet_max_btagRobustParTAK4B = np.concatenate([np.maximum.reduce([nt.Jet0_btagRobustParTAK4B, nt.Jet1_btagRobustParTAK4B, nt.Jet2_btagRobustParTAK4B, nt.Jet3_btagRobustParTAK4B]) for nt in sample_dict.values()], axis = 0)
 
     """========== WH Topology =========="""
     delta_phi_diphoton_W_electron = np.concatenate([nt.phi - electron_MET_transverse_momentum_vector(nt).phi for nt in sample_dict.values()], axis = 0)
@@ -262,7 +264,10 @@ def feature_creation(sample_dict):
                 lead_photon_pt_mgg_ratio, sublead_photon_pt_mgg_ratio, lead_photon_eta, sublead_photon_eta, cos_delta_phi_photons, max_photon_id, min_photon_id, lead_photon_pixelSeed, sublead_photon_pixelSeed,
                 lead_lepton_pt, lead_lepton_eta, delta_R_ld_photon_ld_lepton, delta_R_sld_photon_ld_lepton,
                 met_pt, met_sumEt, met_lepton_Mt,
-                jet_multiplicity, jet0_pt, jet1_pt, jet2_pt, jet3_pt, jet_max_btagPNetB, jet_max_btagDeepFlavB, jet_max_btagRobustParTAK4B,
+                jet_multiplicity, jet0_pt, 
+                # jet1_pt, jet2_pt, jet3_pt, 
+                jet_max_btagPNetB, 
+                # jet_max_btagDeepFlavB, jet_max_btagRobustParTAK4B,
                 delta_phi_diphoton_W_lepton, Min_DPhi_W_Jets, WH_lepton_pt_balance
             ], nan = 0.0
         )
@@ -284,7 +289,7 @@ bdt_bkg = model.predict_proba(WH_background_combined_transposed)[:, 1]
 
 """========== Asimov Significance Definition =========="""
 def asimov_significance(S, B):
-    Br = 10 # Background regularization term (Ref: The Higgs boson machine learning challenge)
+    Br = 10 # Background regularization term (Ref: The Higgs boson machine learning challenge "https://proceedings.mlr.press/v42/cowa14.pdf")
     if B <= 0: return 0
     return sqrt(2 * ((S + B + Br) * log(1 + S / (B + Br)) - S))
 

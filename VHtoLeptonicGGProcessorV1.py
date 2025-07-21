@@ -12,6 +12,7 @@ from higgs_dna.tools.gen_helpers import get_fiducial_flag, get_genJets, get_higg
 from higgs_dna.tools.sigma_m_tools import compute_sigma_m
 from higgs_dna.tools.flow_corrections import calculate_flow_corrections
 from higgs_dna.tools.mass_decorrelator import decorrelate_mass_resolution
+from higgs_dna.tools.XGBoost_Classifier import WH_leptonic_classifier # XGBoost_Classifier is the script for classifying VH-leptonic event. In my study, WH-leptonic in particular. 
 
 from higgs_dna.selections.photon_selections import photon_preselection
 from higgs_dna.selections.diphoton_selections import apply_fiducial_cut_det_level
@@ -39,6 +40,7 @@ import numpy as np
 import operator
 import sys
 import vector
+import xgboost
 from typing import Any, Dict, List, Optional
 from coffea.nanoevents.methods import candidate
 
@@ -108,8 +110,9 @@ class VHtoLeptonicGGProcessorV1(HggBaseProcessor):
         evt_nMuons = self.nMuons[ievt]
         evt_nLeptons = evt_nElectrons + evt_nMuons
 
-        if evt_nElectrons == 2 or evt_nMuons == 2:  # ZH-leptonic (same-flavor charged lepton pair)
-            cat = 2
+        if evt_nLeptons == 2:
+            if evt_nElectrons == 2 or evt_nMuons == 2:  # ZH-leptonic (same-flavor charged lepton pair)
+                cat = 2
         elif evt_nLeptons == 1:  # WH-leptonic (single charged lepton)
             cat = 1
         else:  # VH-MET
@@ -579,6 +582,8 @@ class VHtoLeptonicGGProcessorV1(HggBaseProcessor):
                         jet_collection[f"Jet{i}_btagDeepFlavB"] = choose_jet(jets.btagDeepFlavB, i, -999.0)
                         jet_collection[f"Jet{i}_btagRobustParTAK4B"] = choose_jet(jets.btagRobustParTAK4B, i, -999.0)
 
+                    print("[INFO] jet_collection[Jet0_pt]: ", jet_collection["Jet0_pt"])
+
                     # Add Ht (scalar sum of jet Et). (This part is originally written by Tom Runting in stxs.py of HiggsDNA.)
                     # Do I need this variable in my analysis? --> Only need jets_Et.
                     jets_Et = np.sqrt(jets.pt**2 + jets.mass**2)
@@ -602,6 +607,8 @@ class VHtoLeptonicGGProcessorV1(HggBaseProcessor):
                     print(f"diphotons' fields after adding ''jets' variables'': {diphotons.fields}")
                     print("=====================================================================")
                     print("\n")
+                    print("[INFO] Whether the length of Jet0_pt is equal to that of Jet1_pt: ", ak.num(diphotons.Jet0_pt, axis = 0) == ak.num(diphotons.Jet1_pt, axis = 0))
+                    print("[INFO] Whether the length of Jet2_btagPNetB is equal to that of Jet3_btagPNetB: ", ak.num(diphotons.Jet2_btagPNetB, axis = 0) == ak.num(diphotons.Jet3_btagPNetB, axis = 0))
 
                     # Calculate the minimum of the azimuthal angle between the transverse momentum of MET and the transverse momentum of one of the jet. There are two ways to do this:
                     ## 1. Use ak.cartesian() to pair the phi array of MET and the phi array of jets, then calculate the azimuthal angle difference between them.
@@ -644,7 +651,7 @@ class VHtoLeptonicGGProcessorV1(HggBaseProcessor):
                     print("=====================================================================")
                     print(f"diphotons' fields after adding ''Min_DPhi_MET_Jets'' and ''Min_DPhi_W_Jets'' are: {diphotons.fields}")
                     print("=====================================================================")
-
+                    print("\n")
                     """
                     ========== Run taggers on the events list with added diphotons. The Shape here is ensured to be broadcastable. ==========
                     """
@@ -673,6 +680,13 @@ class VHtoLeptonicGGProcessorV1(HggBaseProcessor):
                     
                     """========== ? =========="""
                     diphotons = ak.firsts(diphotons)
+
+                    # BDT_score = WH_leptonic_classifier(diphotons)
+                    # print("=====================================================================")
+                    # print(f"BDT score is {BDT_score}")
+                    # print("=====================================================================")
+                    # diphotons["BDT_score"] = BDT_score
+
                     events[f"diphotons_{do_variation}"] = diphotons # Set diphotons as part of the event record.
                     diphotons["events"] = events.event
                     diphotons["lumi"] = events.luminosityBlock

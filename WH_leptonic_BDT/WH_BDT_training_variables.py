@@ -212,12 +212,12 @@ met_lepton_Mt = np.where(is_electron_event, met_electron_Mt, met_muon_Mt)
 """========== Jets =========="""
 jet_multiplicity = np.concatenate([nt.n_jets for nt in WH_ntuples_dict.values()], axis = 0)
 jet0_pt = np.concatenate([nt.Jet0_pt for nt in WH_ntuples_dict.values()], axis = 0)
-jet1_pt = np.concatenate([nt.Jet1_pt for nt in WH_ntuples_dict.values()], axis = 0)
-jet2_pt = np.concatenate([nt.Jet2_pt for nt in WH_ntuples_dict.values()], axis = 0)
-jet3_pt = np.concatenate([nt.Jet3_pt for nt in WH_ntuples_dict.values()], axis = 0)
+# jet1_pt = np.concatenate([nt.Jet1_pt for nt in WH_ntuples_dict.values()], axis = 0)
+# jet2_pt = np.concatenate([nt.Jet2_pt for nt in WH_ntuples_dict.values()], axis = 0)
+# jet3_pt = np.concatenate([nt.Jet3_pt for nt in WH_ntuples_dict.values()], axis = 0)
 jet_max_btagPNetB = np.concatenate([np.maximum.reduce([nt.Jet0_btagPNetB, nt.Jet1_btagPNetB, nt.Jet2_btagPNetB, nt.Jet3_btagPNetB]) for nt in WH_ntuples_dict.values()], axis = 0)
-jet_max_btagDeepFlavB = np.concatenate([np.maximum.reduce([nt.Jet0_btagDeepFlavB, nt.Jet1_btagDeepFlavB, nt.Jet2_btagDeepFlavB, nt.Jet3_btagDeepFlavB]) for nt in WH_ntuples_dict.values()], axis = 0)
-jet_max_btagRobustParTAK4B = np.concatenate([np.maximum.reduce([nt.Jet0_btagRobustParTAK4B, nt.Jet1_btagRobustParTAK4B, nt.Jet2_btagRobustParTAK4B, nt.Jet3_btagRobustParTAK4B]) for nt in WH_ntuples_dict.values()], axis = 0)
+# jet_max_btagDeepFlavB = np.concatenate([np.maximum.reduce([nt.Jet0_btagDeepFlavB, nt.Jet1_btagDeepFlavB, nt.Jet2_btagDeepFlavB, nt.Jet3_btagDeepFlavB]) for nt in WH_ntuples_dict.values()], axis = 0)
+# jet_max_btagRobustParTAK4B = np.concatenate([np.maximum.reduce([nt.Jet0_btagRobustParTAK4B, nt.Jet1_btagRobustParTAK4B, nt.Jet2_btagRobustParTAK4B, nt.Jet3_btagRobustParTAK4B]) for nt in WH_ntuples_dict.values()], axis = 0)
 
 """========== WH Topology =========="""
 delta_phi_diphoton_W_electron = np.concatenate([nt.phi - get_electron_met_transverse_momentum(nt).phi for nt in WH_ntuples_dict.values()], axis = 0)
@@ -236,7 +236,10 @@ WH_combined = np.array(
             lead_photon_pt_mgg_ratio, sublead_photon_pt_mgg_ratio, lead_photon_eta, sublead_photon_eta, cos_delta_phi_photons, max_photon_id, min_photon_id, lead_photon_pixelSeed, sublead_photon_pixelSeed,
             lead_lepton_pt, lead_lepton_eta, delta_R_ld_photon_ld_lepton, delta_R_sld_photon_ld_lepton,
             met_pt, met_sumEt, met_lepton_Mt,
-            jet_multiplicity, jet0_pt, jet1_pt, jet2_pt, jet3_pt, jet_max_btagPNetB, jet_max_btagDeepFlavB, jet_max_btagRobustParTAK4B,
+            jet_multiplicity, jet0_pt, 
+            # jet1_pt, jet2_pt, jet3_pt, 
+            jet_max_btagPNetB, 
+            # jet_max_btagDeepFlavB, jet_max_btagRobustParTAK4B,
             delta_phi_diphoton_W_lepton, Min_DPhi_W_Jets, WH_lepton_pt_balance
         ], nan = 0.0
     )

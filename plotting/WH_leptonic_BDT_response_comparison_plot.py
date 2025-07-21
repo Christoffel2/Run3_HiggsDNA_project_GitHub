@@ -81,20 +81,34 @@ basepath = {
     "preEE"  : "/eos/home-s/shuofu/my_higgsdna/VH_to_leptonic_GG/2022preEE/Ntuples_v3",
     "postEE" : "/eos/home-s/shuofu/my_higgsdna/VH_to_leptonic_GG/2022postEE/Ntuples_v3"
 }
+excluded_Ntuples = [
+    "ggH", "ggH_powheg", "ttH", "VBF", "VH_bkg", "VHtoGG_M-125_amcatnloFXFX_pythia8_preEE", "VHtoGG_M-125_amcatnloFXFX_pythia8_postEE",
+    "WH_preEE_with_Event_weights", "WH_postEE_with_Event_weights", "WH_signal_filtered", "ZH_Zto2L_signal", "ZH_Zto2Nu_signal"
+]
+excluded_dir = ["merged", "root"]
 print("===========================================================================")
 for tag, path in basepath.items():
-    for category in os.listdir(path):
-        if category == "ggH_powheg":
-            print(f"2022-{tag} ggH_powheg is excluded.")
-            pass
-        else:
-            process_path = os.path.join(basepath[tag], category)
-            if os.path.exists(process_path):
-                for process in os.listdir(process_path):
-                    ntuple_path = os.path.join(process_path, process, "nominal")
+    for category in os.listdir(basepath[tag]):
+        if category not in excluded_Ntuples:
+            category_path = os.path.join(basepath[tag], category)
+            print(f"[INFO] {category_path} is loaded.")
+            for process in os.listdir(category_path):
+                if process not in excluded_dir and os.path.isdir(os.path.join(category_path, process)) is True:
+                    ntuple_path = os.path.join(category_path, process, "nominal")
                     ntuple_name = process.replace("-", "_")
                     ntuples_dict[ntuple_name] = ak.from_parquet(ntuple_path)
-                    print(f"2022-{tag} {ntuple_name}'s Ntuples are loaded.")
+                    print(f"[INFO] {ntuple_name} ntuples are loaded.")
+                else:
+                    print(f"[INFO] {process} is excluded.")
+                    pass
+        else:
+            print(f"[INFO] {category} is excluded.")
+            pass
+
+print("[INFO] 2022 preEE and postEE background Ntuples are loaded.")
+print("\n")
+print(f"[INFO] ntuples_dict: \n {ntuples_dict.keys()}")
+print("\n")
 print("===========================================================================")
 print("\n")
 print("===========================================================================")
@@ -199,12 +213,12 @@ def feature_creation(sample_dict):
     """========== Jets =========="""
     jet_multiplicity = np.concatenate([nt.n_jets for nt in sample_dict.values()], axis = 0)
     jet0_pt = np.concatenate([nt.Jet0_pt for nt in sample_dict.values()], axis = 0)
-    jet1_pt = np.concatenate([nt.Jet1_pt for nt in sample_dict.values()], axis = 0)
-    jet2_pt = np.concatenate([nt.Jet2_pt for nt in sample_dict.values()], axis = 0)
-    jet3_pt = np.concatenate([nt.Jet3_pt for nt in sample_dict.values()], axis = 0)
+    # jet1_pt = np.concatenate([nt.Jet1_pt for nt in sample_dict.values()], axis = 0)
+    # jet2_pt = np.concatenate([nt.Jet2_pt for nt in sample_dict.values()], axis = 0)
+    # jet3_pt = np.concatenate([nt.Jet3_pt for nt in sample_dict.values()], axis = 0)
     jet_max_btagPNetB = np.concatenate([np.maximum.reduce([nt.Jet0_btagPNetB, nt.Jet1_btagPNetB, nt.Jet2_btagPNetB, nt.Jet3_btagPNetB]) for nt in sample_dict.values()], axis = 0)
-    jet_max_btagDeepFlavB = np.concatenate([np.maximum.reduce([nt.Jet0_btagDeepFlavB, nt.Jet1_btagDeepFlavB, nt.Jet2_btagDeepFlavB, nt.Jet3_btagDeepFlavB]) for nt in sample_dict.values()], axis = 0)
-    jet_max_btagRobustParTAK4B = np.concatenate([np.maximum.reduce([nt.Jet0_btagRobustParTAK4B, nt.Jet1_btagRobustParTAK4B, nt.Jet2_btagRobustParTAK4B, nt.Jet3_btagRobustParTAK4B]) for nt in sample_dict.values()], axis = 0)
+    # jet_max_btagDeepFlavB = np.concatenate([np.maximum.reduce([nt.Jet0_btagDeepFlavB, nt.Jet1_btagDeepFlavB, nt.Jet2_btagDeepFlavB, nt.Jet3_btagDeepFlavB]) for nt in sample_dict.values()], axis = 0)
+    # jet_max_btagRobustParTAK4B = np.concatenate([np.maximum.reduce([nt.Jet0_btagRobustParTAK4B, nt.Jet1_btagRobustParTAK4B, nt.Jet2_btagRobustParTAK4B, nt.Jet3_btagRobustParTAK4B]) for nt in sample_dict.values()], axis = 0)
 
     """========== WH Topology =========="""
     delta_phi_diphoton_W_electron = np.concatenate([nt.phi - electron_MET_transverse_momentum_vector(nt).phi for nt in sample_dict.values()], axis = 0)
@@ -222,7 +236,10 @@ def feature_creation(sample_dict):
                 lead_photon_pt_mgg_ratio, sublead_photon_pt_mgg_ratio, lead_photon_eta, sublead_photon_eta, cos_delta_phi_photons, max_photon_id, min_photon_id, lead_photon_pixelSeed, sublead_photon_pixelSeed,
                 lead_lepton_pt, lead_lepton_eta, delta_R_ld_photon_ld_lepton, delta_R_sld_photon_ld_lepton,
                 met_pt, met_sumEt, met_lepton_Mt,
-                jet_multiplicity, jet0_pt, jet1_pt, jet2_pt, jet3_pt, jet_max_btagPNetB, jet_max_btagDeepFlavB, jet_max_btagRobustParTAK4B,
+                jet_multiplicity, jet0_pt, 
+                # jet1_pt, jet2_pt, jet3_pt, 
+                jet_max_btagPNetB, 
+                # jet_max_btagDeepFlavB, jet_max_btagRobustParTAK4B,
                 delta_phi_diphoton_W_lepton, Min_DPhi_W_Jets, WH_lepton_pt_balance
             ], nan = 0.0
         )
@@ -257,7 +274,7 @@ labels = ["Diphoton", "DYJets", "$\it{\gamma}+jets$", "Top", "$VV/V+\it{\gamma}$
 ########## Plotting ##########
 ################################################################################################################################
 hep.style.use("CMS")
-suffix = "Ntuples_v3_20250609"
+suffix = "Ntuples_v3_20250630"
 
 # Data = np.concatenate([data_ntuples_dict.values()])
 # Diphotons = np.concatenate([Diphotons_ntuples_dict.values()])
@@ -276,7 +293,7 @@ Diboson_weight = np.concatenate([get_weight(name, nt) for name, nt in Diboson_nt
 WH_signal_weight = np.concatenate([get_weight(name, nt) for name, nt in WH_signal_ntuples_dict.items()])
 
 
-Data_BDT_response_hist, bins = np.histogram(data_bdt_response, range = (0, 1), bins = 40)
+Data_BDT_response_hist, bins = np.histogram(data_bdt_response, range = (0, 1), bins = 30)
 bin_center = (bins[1:] + bins[:-1]) / 2
 
 MC_samples = [Diphotons_bdt_response, DYJets_bdt_response, GJets_bdt_response, Top_bdt_response, Diboson_bdt_response]
